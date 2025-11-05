@@ -1,4 +1,5 @@
 /venv/
+/.venv/
 /excel/migrations/0001_initial.py
 /auth_app/migrations/0001_initial.py
 /db.sqlite3/
