@@ -1,0 +1,1166 @@
+[
+    {
+        "type": "flight-offer",
+        "id": "1",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-10-31",
+        "lastTicketingDateTime": "2025-10-31",
+        "numberOfBookableSeats": 7,
+        "itineraries": [
+            {
+                "duration": "PT11H",
+                "segments": [
+                    {
+                        "departure": {
+                            "iataCode": "DXB",
+                            "terminal": "1",
+                            "at": "2025-12-05T07:45:00"
+                        },
+                        "arrival": {
+                            "iataCode": "BAH",
+                            "at": "2025-12-05T08:05:00"
+                        },
+                        "carrierCode": "GF",
+                        "number": "501",
+                        "aircraft": {
+                            "code": "32N"
+                        },
+                        "operating": {
+                            "carrierCode": "GF"
+                        },
+                        "duration": "PT1H20M",
+                        "id": "1",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    },
+                    {
+                        "departure": {
+                            "iataCode": "BAH",
+                            "at": "2025-12-05T10:25:00"
+                        },
+                        "arrival": {
+                            "iataCode": "LHR",
+                            "terminal": "4",
+                            "at": "2025-12-05T14:45:00"
+                        },
+                        "carrierCode": "GF",
+                        "number": "3",
+                        "aircraft": {
+                            "code": "789"
+                        },
+                        "operating": {
+                            "carrierCode": "GF"
+                        },
+                        "duration": "PT7H20M",
+                        "id": "2",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    }
+                ]
+            }
+        ],
+        "price": {
+            "currency": "AED",
+            "total": "1100.00",
+            "base": "670.00",
+            "fees": [
+                {
+                    "amount": "0.00",
+                    "type": "SUPPLIER"
+                },
+                {
+                    "amount": "0.00",
+                    "type": "TICKETING"
+                }
+            ],
+            "grandTotal": "1100.00"
+        },
+        "pricingOptions": {
+            "fareType": [
+                "PUBLISHED"
+            ],
+            "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+            "GF"
+        ],
+        "travelerPricings": [
+            {
+                "travelerId": "1",
+                "fareOption": "STANDARD",
+                "travelerType": "ADULT",
+                "price": {
+                    "currency": "AED",
+                    "total": "1100.00",
+                    "base": "670.00"
+                },
+                "fareDetailsBySegment": [
+                    {
+                        "segmentId": "1",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "WDLIT3AE",
+                        "brandedFare": "ECOLITE",
+                        "brandedFareLabel": "ECONOMY LIGHT",
+                        "class": "W",
+                        "includedCheckedBags": {
+                            "weight": 25,
+                            "weightUnit": "KG"
+                        },
+                        "includedCabinBags": {
+                            "weight": 6,
+                            "weightUnit": "KG"
+                        },
+                        "amenities": [
+                            {
+                                "description": "STANDARD SEAT",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MEALS AND BEVERAGES",
+                                "isChargeable": false,
+                                "amenityType": "MEAL",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "EXTRA LEGROOM SEATS",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "REFUNDABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGEABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PREFERRED SEATS",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "50 PERCENT MILES EARNED",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "segmentId": "2",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "WDLIT3AE",
+                        "brandedFare": "ECOLITE",
+                        "brandedFareLabel": "ECONOMY LIGHT",
+                        "class": "W",
+                        "includedCheckedBags": {
+                            "weight": 25,
+                            "weightUnit": "KG"
+                        },
+                        "includedCabinBags": {
+                            "weight": 6,
+                            "weightUnit": "KG"
+                        },
+                        "amenities": [
+                            {
+                                "description": "STANDARD SEAT",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MEALS AND BEVERAGES",
+                                "isChargeable": false,
+                                "amenityType": "MEAL",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "EXTRA LEGROOM SEATS",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "REFUNDABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGEABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PREFERRED SEATS",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "50 PERCENT MILES EARNED",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "flight-offer",
+        "id": "2",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-10-12",
+        "lastTicketingDateTime": "2025-10-12",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+            {
+                "duration": "PT11H45M",
+                "segments": [
+                    {
+                        "departure": {
+                            "iataCode": "DXB",
+                            "terminal": "1",
+                            "at": "2025-12-05T07:00:00"
+                        },
+                        "arrival": {
+                            "iataCode": "AMM",
+                            "at": "2025-12-05T09:35:00"
+                        },
+                        "carrierCode": "RJ",
+                        "number": "613",
+                        "aircraft": {
+                            "code": "32N"
+                        },
+                        "operating": {
+                            "carrierCode": "RJ"
+                        },
+                        "duration": "PT3H35M",
+                        "id": "7",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    },
+                    {
+                        "departure": {
+                            "iataCode": "AMM",
+                            "at": "2025-12-05T11:50:00"
+                        },
+                        "arrival": {
+                            "iataCode": "LHR",
+                            "terminal": "3",
+                            "at": "2025-12-05T14:45:00"
+                        },
+                        "carrierCode": "RJ",
+                        "number": "111",
+                        "aircraft": {
+                            "code": "788"
+                        },
+                        "operating": {
+                            "carrierCode": "RJ"
+                        },
+                        "duration": "PT5H55M",
+                        "id": "8",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    }
+                ]
+            }
+        ],
+        "price": {
+            "currency": "AED",
+            "total": "1160.00",
+            "base": "850.00",
+            "fees": [
+                {
+                    "amount": "0.00",
+                    "type": "SUPPLIER"
+                },
+                {
+                    "amount": "0.00",
+                    "type": "TICKETING"
+                }
+            ],
+            "grandTotal": "1160.00",
+            "additionalServices": [
+                {
+                    "amount": "230",
+                    "type": "CHECKED_BAGS"
+                }
+            ]
+        },
+        "pricingOptions": {
+            "fareType": [
+                "PUBLISHED"
+            ],
+            "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+            "RJ"
+        ],
+        "travelerPricings": [
+            {
+                "travelerId": "1",
+                "fareOption": "STANDARD",
+                "travelerType": "ADULT",
+                "price": {
+                    "currency": "AED",
+                    "total": "1160.00",
+                    "base": "850.00"
+                },
+                "fareDetailsBySegment": [
+                    {
+                        "segmentId": "7",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "ORJSPAE1",
+                        "brandedFare": "ECSAVER",
+                        "brandedFareLabel": "ECONOMY SAVER",
+                        "class": "O",
+                        "includedCheckedBags": {
+                            "quantity": 1
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CARRY ON BAGGAGE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "FREE BAGGAGE ALLOWANCE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVED SEAT ASSIGNMENT",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MILEAGE ACCRUAL",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGEABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "segmentId": "8",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "ORJSPAE1",
+                        "brandedFare": "ECSAVER",
+                        "brandedFareLabel": "ECONOMY SAVER",
+                        "class": "O",
+                        "includedCheckedBags": {
+                            "quantity": 1
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CARRY ON BAGGAGE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "FREE BAGGAGE ALLOWANCE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVED SEAT ASSIGNMENT",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MILEAGE ACCRUAL",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGEABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "flight-offer",
+        "id": "3",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-10-12",
+        "lastTicketingDateTime": "2025-10-12",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+            {
+                "duration": "PT20H",
+                "segments": [
+                    {
+                        "departure": {
+                            "iataCode": "DXB",
+                            "terminal": "1",
+                            "at": "2025-12-05T22:45:00"
+                        },
+                        "arrival": {
+                            "iataCode": "AMM",
+                            "at": "2025-12-06T01:20:00"
+                        },
+                        "carrierCode": "RJ",
+                        "number": "615",
+                        "aircraft": {
+                            "code": "32N"
+                        },
+                        "operating": {
+                            "carrierCode": "RJ"
+                        },
+                        "duration": "PT3H35M",
+                        "id": "3",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    },
+                    {
+                        "departure": {
+                            "iataCode": "AMM",
+                            "at": "2025-12-06T11:50:00"
+                        },
+                        "arrival": {
+                            "iataCode": "LHR",
+                            "terminal": "3",
+                            "at": "2025-12-06T14:45:00"
+                        },
+                        "carrierCode": "RJ",
+                        "number": "111",
+                        "aircraft": {
+                            "code": "788"
+                        },
+                        "operating": {
+                            "carrierCode": "RJ"
+                        },
+                        "duration": "PT5H55M",
+                        "id": "4",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    }
+                ]
+            }
+        ],
+        "price": {
+            "currency": "AED",
+            "total": "1160.00",
+            "base": "850.00",
+            "fees": [
+                {
+                    "amount": "0.00",
+                    "type": "SUPPLIER"
+                },
+                {
+                    "amount": "0.00",
+                    "type": "TICKETING"
+                }
+            ],
+            "grandTotal": "1160.00",
+            "additionalServices": [
+                {
+                    "amount": "230",
+                    "type": "CHECKED_BAGS"
+                }
+            ]
+        },
+        "pricingOptions": {
+            "fareType": [
+                "PUBLISHED"
+            ],
+            "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+            "RJ"
+        ],
+        "travelerPricings": [
+            {
+                "travelerId": "1",
+                "fareOption": "STANDARD",
+                "travelerType": "ADULT",
+                "price": {
+                    "currency": "AED",
+                    "total": "1160.00",
+                    "base": "850.00"
+                },
+                "fareDetailsBySegment": [
+                    {
+                        "segmentId": "3",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "ORJSPAE1",
+                        "brandedFare": "ECSAVER",
+                        "brandedFareLabel": "ECONOMY SAVER",
+                        "class": "O",
+                        "includedCheckedBags": {
+                            "quantity": 1
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CARRY ON BAGGAGE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "FREE BAGGAGE ALLOWANCE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVED SEAT ASSIGNMENT",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MILEAGE ACCRUAL",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGEABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "segmentId": "4",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "ORJSPAE1",
+                        "brandedFare": "ECSAVER",
+                        "brandedFareLabel": "ECONOMY SAVER",
+                        "class": "O",
+                        "includedCheckedBags": {
+                            "quantity": 1
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CARRY ON BAGGAGE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "FREE BAGGAGE ALLOWANCE",
+                                "isChargeable": false,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVED SEAT ASSIGNMENT",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MILEAGE ACCRUAL",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGEABLE TICKET",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "flight-offer",
+        "id": "4",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-12-05",
+        "lastTicketingDateTime": "2025-12-05",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+            {
+                "duration": "PT28H35M",
+                "segments": [
+                    {
+                        "departure": {
+                            "iataCode": "DXB",
+                            "terminal": "1",
+                            "at": "2025-12-05T15:15:00"
+                        },
+                        "arrival": {
+                            "iataCode": "CMN",
+                            "terminal": "2",
+                            "at": "2025-12-05T20:40:00"
+                        },
+                        "carrierCode": "AT",
+                        "number": "247",
+                        "aircraft": {
+                            "code": "789"
+                        },
+                        "operating": {
+                            "carrierCode": "AT"
+                        },
+                        "duration": "PT8H25M",
+                        "id": "5",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    },
+                    {
+                        "departure": {
+                            "iataCode": "CMN",
+                            "terminal": "1",
+                            "at": "2025-12-06T13:35:00"
+                        },
+                        "arrival": {
+                            "iataCode": "LHR",
+                            "terminal": "4",
+                            "at": "2025-12-06T15:50:00"
+                        },
+                        "carrierCode": "AT",
+                        "number": "800",
+                        "aircraft": {
+                            "code": "7M8"
+                        },
+                        "operating": {
+                            "carrierCode": "AT"
+                        },
+                        "duration": "PT3H15M",
+                        "id": "6",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    }
+                ]
+            }
+        ],
+        "price": {
+            "currency": "AED",
+            "total": "1160.00",
+            "base": "80.00",
+            "fees": [
+                {
+                    "amount": "0.00",
+                    "type": "SUPPLIER"
+                },
+                {
+                    "amount": "0.00",
+                    "type": "TICKETING"
+                }
+            ],
+            "grandTotal": "1160.00"
+        },
+        "pricingOptions": {
+            "fareType": [
+                "PUBLISHED"
+            ],
+            "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+            "AT"
+        ],
+        "travelerPricings": [
+            {
+                "travelerId": "1",
+                "fareOption": "STANDARD",
+                "travelerType": "ADULT",
+                "price": {
+                    "currency": "AED",
+                    "total": "1160.00",
+                    "base": "80.00"
+                },
+                "fareDetailsBySegment": [
+                    {
+                        "segmentId": "5",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "WA0WAMEA",
+                        "brandedFare": "CLASSIC",
+                        "brandedFareLabel": "CLASSIC",
+                        "class": "W",
+                        "includedCheckedBags": {
+                            "quantity": 2
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CHECKED BAG THIRD",
+                                "isChargeable": true,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVATION SEAT ASSIGNMEN",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MEAL BEVERAGE",
+                                "isChargeable": false,
+                                "amenityType": "MEAL",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "100 PERCENT MILES",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE BEFORE DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE AFTER DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "segmentId": "6",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "WA0WAMEA",
+                        "brandedFare": "CLASSIC",
+                        "brandedFareLabel": "CLASSIC",
+                        "class": "W",
+                        "includedCheckedBags": {
+                            "quantity": 2
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CHECKED BAG THIRD",
+                                "isChargeable": true,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVATION SEAT ASSIGNMEN",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MEAL BEVERAGE",
+                                "isChargeable": false,
+                                "amenityType": "MEAL",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "100 PERCENT MILES",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE BEFORE DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE AFTER DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "flight-offer",
+        "id": "5",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-12-05",
+        "lastTicketingDateTime": "2025-12-05",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+            {
+                "duration": "PT29H45M",
+                "segments": [
+                    {
+                        "departure": {
+                            "iataCode": "DXB",
+                            "terminal": "1",
+                            "at": "2025-12-05T15:15:00"
+                        },
+                        "arrival": {
+                            "iataCode": "CMN",
+                            "terminal": "2",
+                            "at": "2025-12-05T20:40:00"
+                        },
+                        "carrierCode": "AT",
+                        "number": "247",
+                        "aircraft": {
+                            "code": "789"
+                        },
+                        "operating": {
+                            "carrierCode": "AT"
+                        },
+                        "duration": "PT8H25M",
+                        "id": "9",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    },
+                    {
+                        "departure": {
+                            "iataCode": "CMN",
+                            "terminal": "1",
+                            "at": "2025-12-06T14:45:00"
+                        },
+                        "arrival": {
+                            "iataCode": "LHR",
+                            "terminal": "4",
+                            "at": "2025-12-06T17:00:00"
+                        },
+                        "carrierCode": "AT",
+                        "number": "806",
+                        "aircraft": {
+                            "code": "7M8"
+                        },
+                        "operating": {
+                            "carrierCode": "AT"
+                        },
+                        "duration": "PT3H15M",
+                        "id": "10",
+                        "numberOfStops": 0,
+                        "blacklistedInEU": false
+                    }
+                ]
+            }
+        ],
+        "price": {
+            "currency": "AED",
+            "total": "1160.00",
+            "base": "80.00",
+            "fees": [
+                {
+                    "amount": "0.00",
+                    "type": "SUPPLIER"
+                },
+                {
+                    "amount": "0.00",
+                    "type": "TICKETING"
+                }
+            ],
+            "grandTotal": "1160.00"
+        },
+        "pricingOptions": {
+            "fareType": [
+                "PUBLISHED"
+            ],
+            "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+            "AT"
+        ],
+        "travelerPricings": [
+            {
+                "travelerId": "1",
+                "fareOption": "STANDARD",
+                "travelerType": "ADULT",
+                "price": {
+                    "currency": "AED",
+                    "total": "1160.00",
+                    "base": "80.00"
+                },
+                "fareDetailsBySegment": [
+                    {
+                        "segmentId": "9",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "WA0WAMEA",
+                        "brandedFare": "CLASSIC",
+                        "brandedFareLabel": "CLASSIC",
+                        "class": "W",
+                        "includedCheckedBags": {
+                            "quantity": 2
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CHECKED BAG THIRD",
+                                "isChargeable": true,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVATION SEAT ASSIGNMEN",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MEAL BEVERAGE",
+                                "isChargeable": false,
+                                "amenityType": "MEAL",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "100 PERCENT MILES",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE BEFORE DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE AFTER DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "segmentId": "10",
+                        "cabin": "ECONOMY",
+                        "fareBasis": "WA0WAMEA",
+                        "brandedFare": "CLASSIC",
+                        "brandedFareLabel": "CLASSIC",
+                        "class": "W",
+                        "includedCheckedBags": {
+                            "quantity": 2
+                        },
+                        "includedCabinBags": {
+                            "quantity": 1
+                        },
+                        "amenities": [
+                            {
+                                "description": "CHECKED BAG THIRD",
+                                "isChargeable": true,
+                                "amenityType": "BAGGAGE",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "PRE RESERVATION SEAT ASSIGNMEN",
+                                "isChargeable": true,
+                                "amenityType": "PRE_RESERVED_SEAT",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "MEAL BEVERAGE",
+                                "isChargeable": false,
+                                "amenityType": "MEAL",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "100 PERCENT MILES",
+                                "isChargeable": false,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE BEFORE DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            },
+                            {
+                                "description": "CHANGE AFTER DEPARTURE",
+                                "isChargeable": true,
+                                "amenityType": "BRANDED_FARES",
+                                "amenityProvider": {
+                                    "name": "BrandedFare"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
