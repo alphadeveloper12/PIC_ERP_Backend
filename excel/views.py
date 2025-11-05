@@ -10,11 +10,13 @@ from django.db.models import Q
 from .models import BillItem, AppConfigKV, Project, Revision, Material
 from .serializers import *
 from .permissions import RolePermission
-
+from django.db.models import Q
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
+from .functions import _norm_cols, choose_sheet_fast, _alias_df, to_float_series, BULK_SIZE, REPLACE_MATERIALS
+
 
 class ProjectView(APIView):
     # Fetch and create projects
@@ -47,122 +49,185 @@ class RevisionView(APIView):
 class UploadBillView(APIView):
     def post(self, request):
         project_id = request.data.get('project_id')
-
         if not project_id:
             return Response({"error": "project_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
 
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
-            return Response({"error": f"Project with id {project_id} does not exist."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": f"Project with id {project_id} does not exist."},
+                            status=status.HTTP_404_NOT_FOUND)
 
-        file = request.FILES['file']
+        if 'file' not in request.FILES:
+            return Response({"error": "file is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        fobj = request.FILES['file']
+
+        # 1) Pick sheet + header
         try:
-            df = pd.read_excel(file, sheet_name="Style 1 3BR Cluster (2-Plex)")
-        except ValueError:
-            excel = pd.ExcelFile(file)
-            df = pd.read_excel(file, sheet_name=excel.sheet_names[0])
+            sheet_name, header_row = choose_sheet_fast(fobj)
+        except Exception as e:
+            return Response({"error": f"Failed to inspect Excel: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        df.columns = [c.strip().replace('\n', '').replace(' ', '_').lower() for c in df.columns]
+        # 2) Load chosen sheet fully
+        try:
+            fobj.seek(0)
+        except Exception:
+            pass
+        try:
+            df = pd.read_excel(fobj, sheet_name=sheet_name, header=header_row, dtype=str)
+        except Exception as e:
+            return Response({"error": f"Failed to read chosen sheet: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        def to_float(value):
-            try:
-                if isinstance(value, str):
-                    value = value.replace(",", "").strip()
-                return float(value)
-            except (ValueError, TypeError):
-                return 0.0
+        # 3) Normalize/alias headers
+        df.columns = _norm_cols(df.columns)
+        df = _alias_df(df)
 
+        # 4) Filter rows + detect sections
+        desc = df.get("description")
+        if desc is None:
+            return Response({"error": "No 'description' column found in the selected sheet."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        desc_clean = desc.astype(str).str.strip()
+        valid_mask = (desc_clean.ne("")) & (desc_clean.str.lower().ne("nan"))
+        skip_mask = desc_clean.str.lower().str.contains(r"(total brought forward|collection)", regex=True)
+
+        df = df[valid_mask & ~skip_mask].copy()
+        if df.empty:
+            return Response({"error": "No usable rows after filtering."}, status=status.HTTP_400_BAD_REQUEST)
+
+        df["__is_section__"] = desc_clean.loc[df.index].str.upper().str.startswith("SECTION")
+        df.loc[df["__is_section__"], "__section_val__"] = desc_clean.loc[df["__is_section__"].index]
+        df["__section_val__"] = df["__section_val__"].ffill()
+
+        items_df = df[~df["__is_section__"]].copy()
+        if items_df.empty:
+            return Response({"error": "Only section rows found; no items to import."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 5) Coerce numerics vectorized; ensure columns exist
+        num_cols = [
+            "quantity","rate","material_rate","material_wastage","plant_rate",
+            "labour_hours","subcontract_rate","others_1_qty","others_1_rate",
+            "others_2_qty","others_2_rate","dry_cost","unit_rate","prelimin",
+            "boq_amount","actual_qty","actual_amount","factor"
+        ]
+        for c in num_cols:
+            if c in items_df.columns:
+                items_df[c] = to_float_series(items_df[c])
+            else:
+                items_df[c] = 0.0
+
+        # Ensure text fields present
+        for c in ["unit", "item_no", "material"]:
+            if c not in items_df.columns:
+                items_df[c] = ""
+
+        # Normalize key fields + sort_order within section
+        items_df["section"] = items_df["__section_val__"].fillna("Uncategorized")
+        items_df["description"] = desc_clean.loc[items_df.index]
+        items_df["item_no"] = items_df["item_no"].fillna("").astype(str).replace({"nan": ""})
+        items_df["unit"] = items_df["unit"].fillna("").astype(str)
+        items_df["sort_order"] = items_df.groupby("section").cumcount() + 1
+
+        # 6) Prepare flat records for DB layer
+        common_fields = [
+            "section","sort_order","item_no","description","unit","quantity","rate",
+            "material_rate","material_wastage","plant_rate","labour_hours","subcontract_rate",
+            "others_1_qty","others_1_rate","others_2_qty","others_2_rate",
+            "dry_cost","unit_rate","prelimin","boq_amount","actual_qty","actual_amount","factor"
+        ]
+        materials_series = items_df["material"].fillna("").astype(str)
+
+        records = items_df[common_fields].to_dict("records")
+
+        # Build sets for bulk fetch
+        sections = list(items_df["section"].unique())
+        item_nos = list(items_df["item_no"].unique())
+        descriptions = list(items_df["description"].unique())
+
+        # 7) Bulk fetch existing items and split create/update (NO UPSERT)
+        try:
+            existing_qs = BillItem.objects.filter(
+                project=project,
+                section__in=sections,
+                item_no__in=item_nos,
+                description__in=descriptions
+            ).only("id","section","item_no","description")
+        except Exception as e:
+            return Response({"error": f"Failed to fetch existing items: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Key normalization used throughout
+        def k(section, item_no, description):
+            return ((section or "Uncategorized"), (item_no or ""), (description or ""))
+
+        existing_map = {k(bi.section, bi.item_no, bi.description): bi for bi in existing_qs}
+
+        to_create, to_update = [], []
+        update_fields = [
+            "sort_order","unit","quantity","rate",
+            "material_rate","material_wastage","plant_rate","labour_hours","subcontract_rate",
+            "others_1_qty","others_1_rate","others_2_qty","others_2_rate",
+            "dry_cost","unit_rate","prelimin","boq_amount","actual_qty","actual_amount","factor"
+        ]
+
+        # Pre-bucket materials by key
+        material_bucket = {}
+        for idx, rec in enumerate(records):
+            key = k(rec["section"], rec["item_no"], rec["description"])
+            material_text = materials_series.iloc[idx]
+            names = [m.strip() for m in str(material_text).split(";") if m.strip()]
+            material_bucket[key] = names
+
+            exists = existing_map.get(key)
+            if exists:
+                # copy fields to existing instance
+                for f in update_fields + ["section","item_no","description"]:
+                    setattr(exists, f, rec.get(f))
+                to_update.append(exists)
+            else:
+                to_create.append(
+                    BillItem(project=project, **rec)
+                )
+
+        # 8) Persist everything in one transaction
         with transaction.atomic():
-            current_section = None
-            order = 0
+            if to_create:
+                BillItem.objects.bulk_create(to_create, batch_size=BULK_SIZE)
+                for bi in to_create:
+                    existing_map[k(bi.section, bi.item_no, bi.description)] = bi
 
-            for _, row in df.iterrows():
-                desc = str(row.get('description')).strip() if row.get('description') is not None else ""
+            if to_update:
+                BillItem.objects.bulk_update(to_update, update_fields, batch_size=BULK_SIZE)
 
-                if "total brought forward" in desc.lower() or "collection" in desc.lower():
+            # materials
+            affected_ids = [bi.id for bi in existing_map.values()]
+            if REPLACE_MATERIALS and affected_ids:
+                Material.objects.filter(bill_item_id__in=affected_ids).delete()
+
+            mat_objs = []
+            for key, names in material_bucket.items():
+                bi = existing_map.get(key)
+                if not bi or not names:
                     continue
+                for nm in names:
+                    mat_objs.append(Material(bill_item_id=bi.id, material_name=nm))
+                    if len(mat_objs) >= BULK_SIZE:
+                        Material.objects.bulk_create(mat_objs, batch_size=BULK_SIZE)
+                        mat_objs = []
+            if mat_objs:
+                Material.objects.bulk_create(mat_objs, batch_size=BULK_SIZE)
 
-                if not desc or desc.lower() == 'nan':
-                    continue
+            # Optional heavy recompute of amounts via model hook:
+            # for bi in existing_map.values():
+            #     bi.save(force_calculation=True)
 
-                if desc.upper().startswith("SECTION"):
-                    current_section = desc
-                    order = 0
-                    continue
+        return Response(
+            {"message": "Uploaded & saved with estimations.", "sheet_used": sheet_name},
+            status=status.HTTP_201_CREATED
+        )
 
-                order += 1
-
-                # Check if BillItem already exists with the same description, section, and item number
-                existing_item = BillItem.objects.filter(
-                    project=project,
-                    section=current_section,
-                    description=desc,
-                    item_no=row.get('item_no')
-                ).first()
-
-                if existing_item:
-                    # Update the existing BillItem record
-                    existing_item.quantity = to_float(row.get('quantity'))
-                    existing_item.rate = to_float(row.get('rate'))
-                    existing_item.material_rate = to_float(row.get('material_rate'))
-                    existing_item.material_wastage = to_float(row.get('material_wastage'))
-                    existing_item.plant_rate = to_float(row.get('plant_rate'))
-                    existing_item.labour_hours = to_float(row.get('labour_hours'))
-                    existing_item.subcontract_rate = to_float(row.get('subcontract_rate'))
-                    existing_item.others_1_qty = to_float(row.get('others_1_qty'))
-                    existing_item.others_1_rate = to_float(row.get('others_1_rate'))
-                    existing_item.others_2_qty = to_float(row.get('others_2_qty'))
-                    existing_item.others_2_rate = to_float(row.get('others_2_rate'))
-                    existing_item.dry_cost = to_float(row.get('dry_cost'))
-                    existing_item.unit_rate = to_float(row.get('unit_rate'))
-                    existing_item.prelimin = to_float(row.get('prelimin'))
-                    existing_item.boq_amount = to_float(row.get('boq_amount'))
-                    existing_item.actual_qty = to_float(row.get('actual_qty'))
-                    existing_item.actual_amount = to_float(row.get('actual_amount'))
-                    existing_item.factor = to_float(row.get('factor'))
-                    existing_item.save()  # Save the updated item
-                else:
-                    # Create a new BillItem if none exists with the same unique fields
-                    bill_item = BillItem.objects.create(
-                        project=project,
-                        section=current_section or "Uncategorized",
-                        sort_order=order,
-                        item_no=row.get('item_no') if pd.notna(row.get('item_no')) else "",
-                        description=desc,
-                        unit=row.get('unit') if pd.notna(row.get('unit')) else "",
-                        quantity=to_float(row.get('quantity')),
-                        rate=to_float(row.get('rate')),
-                        material_rate=to_float(row.get('material_rate')),
-                        material_wastage=to_float(row.get('material_wastage')),
-                        plant_rate=to_float(row.get('plant_rate')),
-                        labour_hours=to_float(row.get('labour_hours')),
-                        subcontract_rate=to_float(row.get('subcontract_rate')),
-                        others_1_qty=to_float(row.get('others_1_qty')),
-                        others_1_rate=to_float(row.get('others_1_rate')),
-                        others_2_qty=to_float(row.get('others_2_qty')),
-                        others_2_rate=to_float(row.get('others_2_rate')),
-                        dry_cost=to_float(row.get('dry_cost')),
-                        unit_rate=to_float(row.get('unit_rate')),
-                        prelimin=to_float(row.get('prelimin')),
-                        boq_amount=to_float(row.get('boq_amount')),
-                        actual_qty=to_float(row.get('actual_qty')),
-                        actual_amount=to_float(row.get('actual_amount')),
-                        factor=to_float(row.get('factor')),  # Add factor from excel
-                    )
-
-                # After saving or updating the BillItem, now associate the materials
-                material_data = row.get('material')
-                if material_data:
-                    materials = material_data.split(';')  # assuming materials are separated by semicolons in the excel
-                    for material in materials:
-                        Material.objects.create(
-                            bill_item=bill_item if not existing_item else existing_item,
-                            material_name=material.strip()
-                        )
-
-        return Response({"message": "Uploaded & saved with estimations."}, status=status.HTTP_201_CREATED)
 
 class ConfigView(APIView):
     def get(self, request):

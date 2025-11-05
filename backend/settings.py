@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',   # <— add this above all apps
     'auth_app',   # our new app
-    'chatgpt',  # <— add this line
+    # 'chatgpt',  # <— add this line
     'excel',
 ]
 
