@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UploadBillView, ConfigView, BillItemListView, BillGroupedView, BillItemUpdateView, BillItemCreateView, BillItemSoftDeleteView, BillItemRestoreView, BillItemHardDeleteView, ReorderView, ExportExcelView, ExportPDFView, ProjectView, RevisionView
+from .views import *
 
 urlpatterns = [
     path('upload-bill/', UploadBillView.as_view()),
@@ -16,4 +16,6 @@ urlpatterns = [
     path('export/pdf/', ExportPDFView.as_view()),
     path('projects/', ProjectView.as_view()),   # New route to manage projects
     path('projects/<int:project_id>/revisions/', RevisionView.as_view()),  # Route to upload revisions for a project
+    path('estimation/save/', EstimationSaveView.as_view()),
+    path('estimation/<int:item_id>/', EstimationUpdateView.as_view()),
 ]

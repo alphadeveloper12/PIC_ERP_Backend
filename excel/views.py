@@ -16,7 +16,131 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
 from .functions import _norm_cols, choose_sheet_fast, _alias_df, to_float_series, BULK_SIZE, REPLACE_MATERIALS
+from django.shortcuts import get_object_or_404
+from django.db import transaction
 
+
+
+class EstimationBaseView(APIView):
+    """
+    Common logic for saving estimation payloads to BillItem + Materials.
+    Expects payload in the shape of your ESTIMATION_PAYLOAD.
+    """
+
+    def _apply_payload(self, item: BillItem, payload: dict):
+        """
+        Mutate and save BillItem + replace Materials according to payload.
+        """
+        computed = payload.get("computed", {}) or {}
+        materials = payload.get("materials", []) or []
+        plant = payload.get("plant", {}) or {}
+        labour = payload.get("labour", {}) or {}
+        subcontract = payload.get("subcontract", {}) or {}
+        factor_percent = computed.get("factor_percent")
+
+        # 🔹 New: Handle section factor from payload
+        section_factor = payload.get("section_factor")
+        if section_factor is not None:
+            try:
+                section_factor = float(section_factor)
+            except ValueError:
+                section_factor = 0.0
+            # Save factor in this item’s section for consistency
+            item.section_factor = section_factor
+
+            # Optional cascade: update all items in this section to keep uniformity
+            BillItem.objects.filter(
+                project=item.project, section=item.section, is_deleted=False
+            ).update(section_factor=section_factor)
+
+        # --- Update BillItem core estimation fields ---
+        item.rate = payload.get("patched_rate", item.rate)
+        item.amount = payload.get("patched_amount", item.amount)
+
+        item.dry_cost = computed.get("dry_cost", item.dry_cost)
+        item.unit_rate = computed.get("unit_rate", item.unit_rate)
+        item.prelimin = computed.get("prelimin", item.prelimin)
+
+        item.plant_rate = plant.get("rate", item.plant_rate)
+        item.plant_amount = plant.get("amount", item.plant_amount)
+
+        item.labour_hours = labour.get("hours", item.labour_hours)
+        item.labour_amount = labour.get("amount", item.labour_amount)
+
+        item.subcontract_rate = subcontract.get("rate", item.subcontract_rate)
+        item.subcontract_amount = subcontract.get("amount", item.subcontract_amount)
+
+        # Factor in your DB is %; payload gives % already
+        if factor_percent is not None:
+            item.factor = factor_percent
+
+        item.save()
+
+        # --- Replace Materials ---
+        Material.objects.filter(bill_item=item).delete()
+        mat_objs = []
+        item_qty = payload.get("quantity", item.quantity or 0) or 0
+        for m in materials:
+            mat_objs.append(
+                Material(
+                    bill_item=item,
+                    material_name=m.get("name", "")[:200],
+                    material_rate=m.get("rate") or 0.0,
+                    material_quantity=item_qty,
+                    material_wastage=m.get("wastage_percent") or 0.0,
+                    material_amount=m.get("amount") or 0.0,
+                )
+            )
+        if mat_objs:
+            Material.objects.bulk_create(mat_objs, batch_size=500)
+
+        item.boq_amount = (
+            (item.plant_amount or 0)
+            + (item.labour_amount or 0)
+            + (item.subcontract_amount or 0)
+            + sum(m.material_amount for m in Material.objects.filter(bill_item=item))
+            + (item.others_1_amount or 0)
+            + (item.others_2_amount or 0)
+        )
+        item.save(update_fields=["boq_amount", "section_factor"])
+
+        return BillItemSerializer(item).data
+
+
+class EstimationSaveView(EstimationBaseView):
+    """
+    POST /api/excel/estimation/save/
+    Body: ESTIMATION_PAYLOAD (includes item_id)
+    """
+    def post(self, request):
+        payload = request.data
+        item_id = payload.get("item_id")
+        if not item_id:
+            return Response({"detail": "item_id is required"}, status=400)
+
+        item = get_object_or_404(BillItem, pk=item_id, is_deleted=False)
+        with transaction.atomic():
+            data = self._apply_payload(item, payload)
+        return Response({"message": "Estimation saved", "item": data}, status=201)
+
+
+class EstimationUpdateView(EstimationBaseView):
+    """
+    PUT/PATCH /api/excel/estimation/<item_id>/
+    Body: ESTIMATION_PAYLOAD (item_id in URL wins)
+    """
+    def put(self, request, item_id: int):
+        payload = request.data or {}
+        item = get_object_or_404(BillItem, pk=item_id, is_deleted=False)
+        # enforce URL id
+        payload["item_id"] = item_id
+        with transaction.atomic():
+            data = self._apply_payload(item, payload)
+        return Response({"message": "Estimation updated", "item": data}, status=200)
+
+    def patch(self, request, item_id: int):
+        # Same as put for now; you can add partial merge logic later if needed.
+        return self.put(request, item_id)
 
 class ProjectView(APIView):
     # Fetch and create projects
