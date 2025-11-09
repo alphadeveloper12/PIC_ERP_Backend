@@ -1,4 +1,4 @@
-from .models import Estimation, BOQ, Section, Subsection, BOQItem
+from .models import *
 from rest_framework import serializers
 from core.serializers import ProfileSerializer
 from projects.serializers import SubPhaseSerializer
@@ -53,7 +53,7 @@ class DetailedSectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ['id', 'name', 'subsections']
+        fields = ['id', 'name','factor', 'subsections']
 
 
 class BOQDetailSerializer(serializers.ModelSerializer):
@@ -62,3 +62,27 @@ class BOQDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = BOQ
         fields = ['id', 'name', 'sections']
+
+
+class MaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Material
+        fields = '__all__'
+
+
+class PlantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plant
+        fields = '__all__'
+
+
+class LabourSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Labour
+        fields = '__all__'
+
+
+class SubcontractSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcontract
+        fields = '__all__'
