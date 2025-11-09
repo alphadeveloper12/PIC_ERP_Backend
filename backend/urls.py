@@ -6,4 +6,5 @@ urlpatterns = [
     path('api/auth/', include('auth_app.urls')),  # our login API
     # path('api/', include('chatgpt.urls')),  # OpenAI API endpoints
     path('api/excel/', include('excel.urls')),  # Excel/Bill of Quantities endpoints
+    path('api/planning/', include('planning.urls')),  # Excel/Bill of Quantities endpoints
 ]

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'auth_app',   # our new app
     # 'chatgpt',  # <— add this line
     'excel',
+    'planning',
 ]
 
 MIDDLEWARE = [
