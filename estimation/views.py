@@ -637,17 +637,18 @@ class ExportExcelView(APIView):
 
 class ExportPDFView(APIView):
     """
-    Export a single BOQ (by id) to a PDF table with wrapped text.
-    Columns: Section, Subsection, Description, Unit, Quantity, Rate, Amount.
+    Export a BOQ (by ID) to PDF — hierarchical layout:
+    Section
+       Subsection
+          BOQ Items (under Description)
     """
     def get(self, request, boq_id):
-        # 1) Get BOQ
         try:
             boq = BOQ.objects.get(pk=boq_id)
         except BOQ.DoesNotExist:
             return Response({"detail": "BOQ not found"}, status=404)
 
-        # 2) Prefetch related data
+        # Prefetch everything efficiently
         item_qs = BOQItem.objects.filter(is_deleted=False).order_by("sort_order", "id")
         subsection_qs = Subsection.objects.prefetch_related(
             Prefetch("items", queryset=item_qs, to_attr="prefetched_items")
@@ -667,100 +668,98 @@ class ExportPDFView(APIView):
         doc = SimpleDocTemplate(
             buf,
             pagesize=landscape(A4),
-            leftMargin=24, rightMargin=24,
-            topMargin=24, bottomMargin=24
+            leftMargin=24, rightMargin=24, topMargin=24, bottomMargin=24
         )
-        story = []
+
         styles = getSampleStyleSheet()
+        wrap = ParagraphStyle("wrap", parent=styles["Normal"], fontSize=8, leading=10, wordWrap="CJK")
+        wrap_bold = ParagraphStyle("wrap_bold", parent=wrap, fontName="Helvetica-Bold")
 
-        # Add custom wrapping styles
-        wrap_normal = ParagraphStyle(
-            "wrap_normal",
-            parent=styles["Normal"],
-            fontSize=8,
-            leading=10,
-            spaceAfter=2,
-            wordWrap='CJK',   # enables wrapping even without spaces
-        )
-        wrap_bold = ParagraphStyle(
-            "wrap_bold",
-            parent=styles["Normal"],
-            fontSize=8,
-            leading=10,
-            spaceAfter=2,
-            wordWrap='CJK',
-            fontName="Helvetica-Bold"
-        )
+        story = []
 
-        # ----- Header -----
-        header_flow = []
+        # ===== HEADER =====
         if cfg.logo_url:
             try:
-                header_flow.append(RLImage(cfg.logo_url, width=80, height=80))
+                story.append(RLImage(cfg.logo_url, width=80, height=80))
             except Exception:
                 pass
-
         title_text = cfg.brand_title or f"Bill of Quantities - {boq.name}"
-        header_flow.append(Paragraph(f"<b>{title_text}</b>", styles['Title']))
+        story.append(Paragraph(f"<b>{title_text}</b>", styles["Title"]))
 
         subtitle = cfg.brand_subtitle or (boq.estimation.subphase.project.name if boq.estimation else "")
         if subtitle:
-            header_flow.append(Paragraph(subtitle, styles['Normal']))
+            story.append(Paragraph(subtitle, styles["Normal"]))
+        story.append(Spacer(1, 12))
 
-        story += header_flow + [Spacer(1, 12)]
-
-        # ----- Table -----
-        data = [["Section", "Subsection", "Description", "Unit", "Quantity", "Rate", "Amount"]]
-        base_total = 0.0
+        # ===== TABLE BUILDING =====
+        headers = ["Item No", "Description", "Unit", "Quantity", "Rate", "Amount"]
+        data = [headers]
+        total_amount = 0.0
 
         for section in sections:
-            section_name = section.name
-            subsections = getattr(section, "prefetched_subsections", section.subsections.all())
+            # Section header row (under Description column)
+            data.append([
+                "",
+                Paragraph(f"<b>{section.name}</b>", wrap_bold),
+                "", "", "", ""
+            ])
 
-            for subsection in subsections:
-                subsection_name = subsection.name
-                items = getattr(subsection, "prefetched_items", subsection.items.filter(is_deleted=False))
+            for subsection in getattr(section, "prefetched_subsections", []):
+                # Subsection header row (also under Description)
+                data.append([
+                    "",
+                    Paragraph(f"<b>{subsection.name}</b>", wrap_bold),
+                    "", "", "", ""
+                ])
 
-                for item in items:
-                    qty = float(item.quantity or 0)
-                    rate = float(item.rate or 0)
-                    amount = float(item.amount or 0)
-                    base_total += amount
-
+                for item in getattr(subsection, "prefetched_items", []):
+                    total_amount += float(item.amount or 0.0)
                     data.append([
-                        Paragraph(section_name, wrap_normal),
-                        Paragraph(subsection_name, wrap_normal),
-                        Paragraph(item.description or "", wrap_normal),
-                        Paragraph(item.unit or "", wrap_normal),
-                        Paragraph(f"{qty:g}", wrap_normal),
-                        Paragraph(f"{rate:g}", wrap_normal),
-                        Paragraph(f"{amount:g}", wrap_normal),
+                        "",  # Item No (optional if you have item_no)
+                        Paragraph(item.description or "", wrap),
+                        Paragraph(item.unit or "", wrap),
+                        Paragraph(f"{float(item.quantity or 0):g}", wrap),
+                        Paragraph(f"{float(item.rate or 0):g}", wrap),
+                        Paragraph(f"{float(item.amount or 0):g}", wrap),
                     ])
 
-        tbl = Table(
+            # Optional subtotal row per section
+            data.append([
+                "",
+                Paragraph("<b>Carried to Collection</b>", wrap_bold),
+                "", "", "",
+                Paragraph(f"{total_amount:g}", wrap_bold)
+            ])
+            data.append(["", "", "", "", "", ""])  # Spacer row
+
+        # ===== TABLE STYLING =====
+        table = Table(
             data,
             repeatRows=1,
-            colWidths=[100, 120, 250, 50, 60, 60, 80]
+            colWidths=[50, 300, 60, 60, 60, 80]
         )
-        tbl.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8e8e8")),
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E8E8E8")),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            ("ALIGN", (4, 1), (-1, -1), "RIGHT"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),  # Ensures wrapped text starts from top
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
         ]))
-        story += [tbl, Spacer(1, 12)]
+        story.append(table)
+        story.append(Spacer(1, 12))
 
-        # ----- Totals -----
-        tax = base_total * (cfg.tax_rate or 0)
-        overhead = base_total * (cfg.overhead_rate or 0)
-        grand = base_total + tax + overhead
+        # ===== TOTALS =====
+        tax = total_amount * (cfg.tax_rate or 0)
+        overhead = total_amount * (cfg.overhead_rate or 0)
+        grand = total_amount + tax + overhead
 
         totals = [
-            ["Base Total", f"{base_total:g}"],
-            [f"Tax ({(cfg.tax_rate or 0)*100:.1f}%)", f"{tax:g}"],
-            [f"Overhead ({(cfg.overhead_rate or 0)*100:.1f}%)", f"{overhead:g}"],
-            ["Grand Total", f"{grand:g}"],
+            ["Base Total", f"{total_amount:,.2f}"],
+            [f"Tax ({(cfg.tax_rate or 0)*100:.1f}%)", f"{tax:,.2f}"],
+            [f"Overhead ({(cfg.overhead_rate or 0)*100:.1f}%)", f"{overhead:,.2f}"],
+            ["Grand Total", f"{grand:,.2f}"],
         ]
         t = Table(totals, colWidths=[200, 120])
         t.setStyle(TableStyle([
@@ -769,15 +768,14 @@ class ExportPDFView(APIView):
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
         ]))
-        story += [Spacer(1, 8), t]
+        story.append(t)
 
-        # ----- Build PDF -----
+        # ===== BUILD PDF =====
         doc.build(story)
         buf.seek(0)
-
-        resp = HttpResponse(buf.read(), content_type="application/pdf")
-        resp['Content-Disposition'] = f'attachment; filename=BOQ_{boq_id}_Report.pdf'
-        return resp
+        response = HttpResponse(buf, content_type="application/pdf")
+        response["Content-Disposition"] = f"attachment; filename=BOQ_{boq_id}_Report.pdf"
+        return response
 
 
 
