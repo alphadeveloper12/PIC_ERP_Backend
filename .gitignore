@@ -4,3 +4,13 @@
 /auth_app/migrations/0001_initial.py
 /db.sqlite3/
 /.env/
+/projects/migrations/*
+/projects/__pycache__/*
+/excel/migrations/*
+/estimation/migrations/*
+/auth_app/migrations/*
+.DS_Store
+*.pyc
+__pycache__/
+/core/migrations/*
+db.sqlite3

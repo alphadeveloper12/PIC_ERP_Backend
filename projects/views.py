@@ -9,10 +9,8 @@ from .serializers import ProjectSerializer, SubPhaseSerializer, CompanySerialize
 
 
 class ProjectCreateView(APIView):
-    # authentication_classes = [TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
-
     def post(self, request, **kwargs):
+        print("Received data:", request.data)
         try:
             serializer = ProjectSerializer(data=request.data)
             if serializer.is_valid():
@@ -22,18 +20,31 @@ class ProjectCreateView(APIView):
                     "message": "Project created successfully",
                     "data": serializer.data
                 })
+            
+            print("Validation errors:", serializer.errors)
+            
+            # Format errors for better readability
+            error_messages = []
+            for field, errors in serializer.errors.items():
+                for error in errors:
+                    error_messages.append(f"{field}: {error}")
+            
             return JsonResponse({
                 "status": "failed",
-                "message": serializer.errors,
+                "message": " | ".join(error_messages),
+                "errors": serializer.errors,
                 "data": None
-            }, safe=False, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
         except Exception as e:
-            print(f'Error: {e}')
+            print(f'Exception: {e}')
+            import traceback
+            traceback.print_exc()
             return JsonResponse({
                 "status": "failed",
-                "message": "Something went wrong...",
+                "message": str(e),
                 "data": None
-            }, safe=False, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProjectUpdateView(APIView):
@@ -146,6 +157,7 @@ class SubPhaseListView(APIView):
 
     def get(self, request, **kwargs):
         try:
+            print (request.query_params)
             project_id = request.query_params.get('project_id')
             subphases = SubPhase.objects.filter(project_id=project_id)
             serializer = SubPhaseSerializer(subphases, many=True)
