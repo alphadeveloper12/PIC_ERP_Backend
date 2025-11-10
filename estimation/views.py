@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
-
+from io import BytesIO
 from .serializers import *
 import json
 
@@ -19,22 +19,21 @@ from rest_framework.response import Response
 from django.db import transaction
 from django.http import HttpResponse
 import io
-
+from .serializers import BOQItemCostUpdateSerializer
 from estimation.models import BOQItem, Subsection, Section
 from .serializers import BOQItemSerializer
 from excel.serializers import AppConfigKV, AppConfigSerializer
 from excel.permissions import RolePermission
 from openpyxl import Workbook
+from django.shortcuts import get_object_or_404
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from collections import defaultdict
 from django.http import HttpResponse
 from rest_framework.views import APIView
-from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
-)
+from reportlab.lib.pagesizes import A3, landscape
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 
@@ -497,18 +496,20 @@ class ReorderView(APIView):
 class ExportExcelView(APIView):
     """
     Exports BOQ hierarchy (Section → Subsection → Items) to Excel
-    with indentation and subtotal layout like a professional BOQ sheet.
+    with grouped headers for Materials, Plant, Labour, Subcontract,
+    and tail summary fields.
+    Handles multi-material rows cleanly without repeating item data.
     """
 
     def get(self, request, boq_id):
-        # 1️⃣ Get the BOQ
+        # 1️⃣ Get BOQ
         try:
             boq = BOQ.objects.get(pk=boq_id)
         except BOQ.DoesNotExist:
             return Response({"detail": "BOQ not found"}, status=404)
 
         # 2️⃣ Prefetch related data
-        item_qs = BOQItem.objects.filter(is_deleted=False).order_by("sort_order", "id")
+        item_qs = BOQItem.objects.filter(is_deleted=False).order_by("sort_order", "id").prefetch_related("materials")
         subsection_qs = Subsection.objects.prefetch_related(
             Prefetch("items", queryset=item_qs, to_attr="prefetched_items")
         )
@@ -528,73 +529,163 @@ class ExportExcelView(APIView):
         ws = wb.active
         ws.title = "BOQ Export"
 
-        # ---- Branding Header ----
-        ws.merge_cells("A1:G1")
+        # Branding Header
+        ws.merge_cells("A1:W1")
         ws["A1"] = cfg.brand_title or f"Bill of Quantities - {boq.name}"
         ws["A1"].font = Font(size=14, bold=True)
         ws["A1"].alignment = Alignment(horizontal="center")
 
-        ws.merge_cells("A2:G2")
+        ws.merge_cells("A2:W2")
         subtitle = cfg.brand_subtitle or (boq.estimation.subphase.project.name if boq.estimation else "")
         ws["A2"] = subtitle
         ws["A2"].alignment = Alignment(horizontal="center")
 
-        # ---- Column Headers ----
-        headers = ["Item No", "Description", "Unit", "Quantity", "Rate", "Amount"]
+        # 4️⃣ Header setup (row3 = group, row4 = subheaders)
         ws.append([])
-        ws.append(headers)
-        for c in range(1, len(headers) + 1):
-            ws.cell(row=3, column=c).font = Font(bold=True)
-            ws.cell(row=3, column=c).alignment = Alignment(horizontal="center", vertical="center")
+        ws.append([])
+        header_row = 3
+        subheader_row = 4
+
+        def set_cell(row, col, value, bold=False, align="center"):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=True)
+            if bold:
+                cell.font = Font(bold=True)
+            return cell
+
+        # Fixed columns
+        fixed_cols = ["Item No", "Description", "Unit", "Quantity", "Rate", "Amount"]
+        for idx, title in enumerate(fixed_cols, start=1):
+            set_cell(header_row, idx, title, bold=True)
+            ws.merge_cells(start_row=header_row, start_column=idx,
+                           end_row=subheader_row, end_column=idx)
+
+        col = 7
+
+        # MATERIAL (5 cols now: Name, Rate, Wastage, U/Rate, Amount)
+        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row, end_column=col + 4)
+        set_cell(header_row, col, "MATERIAL", bold=True)
+        subheaders = ["Name", "Rate", "Wastage", "U/Rate", "Amount"]
+        for i, sub in enumerate(subheaders):
+            set_cell(subheader_row, col + i, sub)
+        col += 5
+
+        # PLANT (2 cols)
+        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row, end_column=col + 1)
+        set_cell(header_row, col, "PLANT", bold=True)
+        set_cell(subheader_row, col, "Rate")
+        set_cell(subheader_row, col + 1, "Amount")
+        col += 2
+
+        # LABOUR (2 cols)
+        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row, end_column=col + 1)
+        set_cell(header_row, col, "LABOUR", bold=True)
+        set_cell(subheader_row, col, "Hrs.")
+        set_cell(subheader_row, col + 1, "Amount")
+        col += 2
+
+        # SUBCONTRACT (2 cols)
+        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row, end_column=col + 1)
+        set_cell(header_row, col, "SUBCONTRACT", bold=True)
+        set_cell(subheader_row, col, "Rate")
+        set_cell(subheader_row, col + 1, "Amount")
+        col += 2
+
+        # Tail fields
+        tail_cols = ["Dry Cost", "UNIT RATE", "Prelimin.", "BOQ Amount", "Amount"]
+        for title in tail_cols:
+            set_cell(header_row, col, title, bold=True)
+            ws.merge_cells(start_row=header_row, start_column=col,
+                           end_row=subheader_row, end_column=col)
+            col += 1
 
         thin = Side(border_style="thin", color="999999")
-        row_idx = 4
+        row_idx = 5
         base_total = 0.0
 
-        # 4️⃣ Hierarchical Writing
+        # 5️⃣ Data Rows
         for section in sections:
-            # Section Header Row
-            ws.append([None, f"SECTION - {section.name}"])
+            ws.append([None])
+            ws.cell(row=row_idx, column=2, value=f"SECTION - {section.name}")
             ws.cell(row=row_idx, column=2).font = Font(bold=True, size=11)
             row_idx += 1
 
             for subsection in getattr(section, "prefetched_subsections", []):
-                # Subsection Header
-                ws.append(["", f"{subsection.name}"])
+                ws.append([None])
+                ws.cell(row=row_idx, column=2, value=subsection.name)
                 ws.cell(row=row_idx, column=2).font = Font(italic=True)
                 row_idx += 1
 
-                items = getattr(subsection, "prefetched_items", [])
-                if not items:
-                    continue
+                for item in getattr(subsection, "prefetched_items", []):
+                    materials = list(item.materials.all())
+                    plant_rate = float(item.plant_rate or 0)
+                    plant_amount = float(item.plant_amount or 0)
+                    labour_hrs = float(item.labor_hours or 0)
+                    labour_amount = float(item.labor_amount or 0)
+                    subcontract_rate = float(item.subcontract_rate or 0)
+                    subcontract_amount = float(item.subcontract_amount or 0)
+                    dry_cost = float(item.dry_cost or 0)
+                    unit_rate = float(item.unit_rate or 0)
+                    prelimin = float(item.prelimin or 0)
+                    boq_amount = float(item.boq_amount or 0)
+                    tail_amount = float(item.amount or 0)
+                    main_amount = float(item.amount or 0)
+                    base_total += main_amount
 
-                for item in items:
-                    # Indented BOQ Item
+                    # --- main BOQItem row ---
                     ws.append([
-                        item.id,  # or item code (if you add one later)
-                        f"   {item.description or ''}",
+                        item.id,
+                        f"{item.description or ''}",
                         item.unit or "",
                         float(item.quantity or 0),
                         float(item.rate or 0),
-                        float(item.amount or 0)
+                        main_amount,
+                        "", "", "", "", "",  # 5 material cols blank
+                        plant_rate,
+                        plant_amount,
+                        labour_hrs,
+                        labour_amount,
+                        subcontract_rate,
+                        subcontract_amount,
+                        dry_cost,
+                        unit_rate,
+                        prelimin,
+                        boq_amount,
+                        tail_amount,
                     ])
-                    for c in range(1, 7):
+                    for c in range(1, 24):
                         ws.cell(row=row_idx, column=c).border = Border(top=thin, bottom=thin, left=thin, right=thin)
-                    base_total += float(item.amount or 0)
                     row_idx += 1
 
-                # Small gap between subsections
+                    # --- materials (sub-rows) ---
+                    for m in materials:
+                        ws.append([
+                            "",  # Item No blank
+                            "",  # Description blank (removed ↳ name here)
+                            "", "", "", "",  # Unit–Amount blanks
+                            m.name or "",  # MATERIAL Name
+                            m.rate or "",
+                            m.wastage or "",
+                            m.u_rate or "",
+                            float(m.amount or 0),
+                            "", "", "", "", "", "", "", "", "", "", "", "", ""
+                        ])
+                        for c in range(1, 24):
+                            ws.cell(row=row_idx, column=c).border = Border(
+                                top=thin, bottom=thin, left=thin, right=thin
+                            )
+                        row_idx += 1
+
                 ws.append([])
                 row_idx += 1
 
-            # Section subtotal
-            ws.append(["", f"Carried to Collection", "", "", "", "AED"])
-            for c in range(1, 7):
+            ws.append(["", "Carried to Collection"])
+            for c in range(1, 24):
                 ws.cell(row=row_idx, column=c).font = Font(bold=True)
                 ws.cell(row=row_idx, column=c).fill = PatternFill("solid", fgColor="FFF4D7")
             row_idx += 2
 
-        # 5️⃣ Totals
+        # 6️⃣ Totals
         tax = base_total * (cfg.tax_rate or 0)
         overhead = base_total * (cfg.overhead_rate or 0)
         grand = base_total + tax + overhead
@@ -607,61 +698,56 @@ class ExportExcelView(APIView):
             (f"Overhead ({(cfg.overhead_rate or 0)*100:.1f}%)", overhead),
             ("Grand Total:", grand),
         ]
+        start_col = 19
         for label, value in totals:
-            ws.append(["", "", "", "", label, value])
-            for c in range(1, 7):
-                ws.cell(row=row_idx, column=c).font = Font(bold=True)
+            ws.cell(row=row_idx, column=start_col, value=label).font = Font(bold=True)
+            ws.cell(row=row_idx, column=start_col + 1, value=value).font = Font(bold=True)
             row_idx += 1
 
-        # Highlight Grand Total
-        for c in range(1, 7):
+        for c in range(start_col, start_col + 2):
             ws.cell(row=row_idx - 1, column=c).fill = PatternFill("solid", fgColor="E2F0D9")
 
-        # 6️⃣ Safe autosizing
-        for i, column_cells in enumerate(ws.iter_cols(min_row=3, max_row=row_idx), start=1):
+        # 7️⃣ Autosize
+        for i in range(1, 25):
             column_letter = get_column_letter(i)
             max_len = 12
-            for cell in column_cells:
+            for cell in ws[column_letter]:
                 if cell.value:
-                    try:
-                        max_len = max(max_len, len(str(cell.value)))
-                    except Exception:
-                        pass
+                    max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[column_letter].width = min(max_len + 2, 60)
 
-        # 7️⃣ Return Excel
+        # 8️⃣ Return Excel
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
         resp = HttpResponse(
             buf.getvalue(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-        resp['Content-Disposition'] = f'attachment; filename=BOQ_{boq_id}_Hierarchical.xlsx'
+        resp["Content-Disposition"] = f"attachment; filename=BOQ_{boq_id}_Hierarchical.xlsx"
         return resp
 
 
 class ExportPDFView(APIView):
     """
-    Export a BOQ (by ID) to PDF — hierarchical layout:
-    Section
-       Subsection
-          BOQ Items (under Description)
+    Export BOQ (hierarchical) to PDF — styled A3 landscape layout
+    matching the Excel exporter with all columns visible.
     """
+
     def get(self, request, boq_id):
+        # ----- Fetch BOQ -----
         try:
             boq = BOQ.objects.get(pk=boq_id)
         except BOQ.DoesNotExist:
             return Response({"detail": "BOQ not found"}, status=404)
 
-        # Prefetch everything efficiently
-        item_qs = BOQItem.objects.filter(is_deleted=False).order_by("sort_order", "id")
+        # Prefetch optimized data
+        item_qs = BOQItem.objects.filter(is_deleted=False).order_by("sort_order", "id").prefetch_related("materials")
         subsection_qs = Subsection.objects.prefetch_related(
             Prefetch("items", queryset=item_qs, to_attr="prefetched_items")
         )
         sections = (
-            Section.objects
-            .filter(boq=boq)
+            Section.objects.filter(boq=boq)
             .order_by("id")
             .prefetch_related(
                 Prefetch("subsections", queryset=subsection_qs, to_attr="prefetched_subsections")
@@ -670,93 +756,126 @@ class ExportPDFView(APIView):
 
         cfg, _ = AppConfigKV.objects.get_or_create(pk=1)
 
-        buf = io.BytesIO()
+        # ----- PDF Setup -----
+        buf = BytesIO()
         doc = SimpleDocTemplate(
             buf,
-            pagesize=landscape(A4),
-            leftMargin=24, rightMargin=24, topMargin=24, bottomMargin=24
+            pagesize=landscape(A3),
+            leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20,
         )
 
         styles = getSampleStyleSheet()
-        wrap = ParagraphStyle("wrap", parent=styles["Normal"], fontSize=8, leading=10, wordWrap="CJK")
+        wrap = ParagraphStyle("wrap", parent=styles["Normal"], fontSize=6, leading=7, wordWrap="CJK")
         wrap_bold = ParagraphStyle("wrap_bold", parent=wrap, fontName="Helvetica-Bold")
 
         story = []
 
-        # ===== HEADER =====
+        # ----- Branding Header -----
         if cfg.logo_url:
             try:
-                story.append(RLImage(cfg.logo_url, width=80, height=80))
+                story.append(RLImage(cfg.logo_url, width=70, height=70))
             except Exception:
                 pass
-        title_text = cfg.brand_title or f"Bill of Quantities - {boq.name}"
-        story.append(Paragraph(f"<b>{title_text}</b>", styles["Title"]))
-
+        story.append(Paragraph(f"<b>{cfg.brand_title or f'Bill of Quantities - {boq.name}'}</b>", styles["Title"]))
         subtitle = cfg.brand_subtitle or (boq.estimation.subphase.project.name if boq.estimation else "")
         if subtitle:
             story.append(Paragraph(subtitle, styles["Normal"]))
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1, 10))
 
-        # ===== TABLE BUILDING =====
-        headers = ["Item No", "Description", "Unit", "Quantity", "Rate", "Amount"]
+        # ----- Table Header -----
+        headers = [
+            "Item No", "Description", "Unit", "Qty", "Rate", "Amount",
+            "Mat Name", "Mat Rate", "Wastage", "U/Rate", "Mat Amt",
+            "Plant Rate", "Plant Amt",
+            "Lab Hrs", "Lab Amt",
+            "Sub Rate", "Sub Amt",
+            "Dry Cost", "UNIT RATE", "Prelimin.", "BOQ Amt", "Amount"
+        ]
         data = [headers]
         total_amount = 0.0
 
+        # ----- Hierarchical Rows -----
         for section in sections:
-            # Section header row (under Description column)
-            data.append([
-                "",
-                Paragraph(f"<b>{section.name}</b>", wrap_bold),
-                "", "", "", ""
-            ])
-
+            data.append(["", Paragraph(f"<b>{section.name}</b>", wrap_bold)] + [""] * (len(headers) - 2))
             for subsection in getattr(section, "prefetched_subsections", []):
-                # Subsection header row (also under Description)
-                data.append([
-                    "",
-                    Paragraph(f"<b>{subsection.name}</b>", wrap_bold),
-                    "", "", "", ""
-                ])
+                data.append(["", Paragraph(f"<b>{subsection.name}</b>", wrap_bold)] + [""] * (len(headers) - 2))
 
                 for item in getattr(subsection, "prefetched_items", []):
-                    total_amount += float(item.amount or 0.0)
+                    total_amount += float(item.amount or 0)
+
+                    # Main item row
                     data.append([
-                        "",  # Item No (optional if you have item_no)
+                        item.id,
                         Paragraph(item.description or "", wrap),
-                        Paragraph(item.unit or "", wrap),
-                        Paragraph(f"{float(item.quantity or 0):g}", wrap),
-                        Paragraph(f"{float(item.rate or 0):g}", wrap),
-                        Paragraph(f"{float(item.amount or 0):g}", wrap),
+                        item.unit or "",
+                        f"{float(item.quantity or 0):g}",
+                        f"{float(item.rate or 0):g}",
+                        f"{float(item.amount or 0):,.2f}",
+                        "", "", "", "", "",
+                        f"{float(item.plant_rate or 0):g}",
+                        f"{float(item.plant_amount or 0):,.2f}",
+                        f"{float(item.labor_hours or 0):g}",
+                        f"{float(item.labor_amount or 0):,.2f}",
+                        f"{float(item.subcontract_rate or 0):g}",
+                        f"{float(item.subcontract_amount or 0):,.2f}",
+                        f"{float(item.dry_cost or 0):,.2f}",
+                        f"{float(item.unit_rate or 0):,.2f}",
+                        f"{float(item.prelimin or 0):,.2f}",
+                        f"{float(item.boq_amount or 0):,.2f}",
+                        f"{float(item.amount or 0):,.2f}",
                     ])
 
-            # Optional subtotal row per section
-            data.append([
-                "",
-                Paragraph("<b>Carried to Collection</b>", wrap_bold),
-                "", "", "",
-                Paragraph(f"{total_amount:g}", wrap_bold)
-            ])
-            data.append(["", "", "", "", "", ""])  # Spacer row
+                    # Material subrows (gray background)
+                    for m in item.materials.all():
+                        row = [
+                            "", "", "", "", "", "",
+                            m.name or "",
+                            f"{m.rate or 0:g}",
+                            f"{m.wastage or 0:g}",
+                            f"{m.u_rate or 0:g}",
+                            f"{float(m.amount or 0):,.2f}",
+                        ] + [""] * (len(headers) - 11)
+                        data.append(row)
 
-        # ===== TABLE STYLING =====
-        table = Table(
-            data,
-            repeatRows=1,
-            colWidths=[50, 300, 60, 60, 60, 80]
-        )
+            data.append(["", Paragraph("<b>Carried to Collection</b>", wrap_bold)] + [""] * (len(headers) - 2))
+            data.append([""] * len(headers))
+
+        # ----- Table Styling -----
+        col_widths = [
+            30, 110, 35, 35, 40, 45,  # core
+            60, 40, 40, 40, 50,       # materials
+            40, 45,                   # plant
+            40, 45,                   # labour
+            40, 45,                   # subcontract
+            45, 45, 45, 50, 50        # totals
+        ]
+        table = Table(data, repeatRows=1, colWidths=col_widths)
+
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E8E8E8")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9E1F2")),  # header background
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#000000")),
+            ("FONTSIZE", (0, 0), (-1, -1), 6),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.whitesmoke, colors.white]),  # alternate subtle
         ]))
+
+        # Highlight material subrows
+        for r_idx, row in enumerate(data):
+            if len(row) > 6 and row[6] and not row[1]:  # has material name, no description
+                table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, r_idx), (-1, r_idx), colors.HexColor("#F7F7F7")),
+                ]))
+
         story.append(table)
         story.append(Spacer(1, 12))
 
-        # ===== TOTALS =====
+        # ----- Totals -----
         tax = total_amount * (cfg.tax_rate or 0)
         overhead = total_amount * (cfg.overhead_rate or 0)
         grand = total_amount + tax + overhead
@@ -767,20 +886,21 @@ class ExportPDFView(APIView):
             [f"Overhead ({(cfg.overhead_rate or 0)*100:.1f}%)", f"{overhead:,.2f}"],
             ["Grand Total", f"{grand:,.2f}"],
         ]
-        t = Table(totals, colWidths=[200, 120])
+        t = Table(totals, colWidths=[220, 120])
         t.setStyle(TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E2F0D9")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
         ]))
         story.append(t)
 
-        # ===== BUILD PDF =====
+        # ----- Build PDF -----
         doc.build(story)
         buf.seek(0)
         response = HttpResponse(buf, content_type="application/pdf")
-        response["Content-Disposition"] = f"attachment; filename=BOQ_{boq_id}_Report.pdf"
+        response["Content-Disposition"] = f"attachment; filename=BOQ_{boq_id}_Detailed.pdf"
         return response
 
 
@@ -804,58 +924,32 @@ class MaterialByBOQItemView(APIView):
         return Response(serializer.data)
 
 
-# ---------- PLANT ----------
-class PlantCreateView(generics.CreateAPIView):
-    serializer_class = PlantSerializer
-    queryset = Plant.objects.all()
+class BOQItemCostUpdateView(APIView):
+    """
+    Unified API to update BOQItem costs:
+    Supports labour, plant, and subcontract cost additions/updates in a single endpoint.
+    """
 
+    def post(self, request, boq_item_id):
+        """
+        Accepts JSON payload like:
+        {
+            "labor_hours": 5,
+            "labor_rate": 120,
+            "plant_rate": 200,
+            "subcontract_rate": 350
+        }
+        Only provided fields will be updated.
+        """
+        boq_item = get_object_or_404(BOQItem, id=boq_item_id)
 
-class PlantUpdateView(generics.UpdateAPIView):
-    serializer_class = PlantSerializer
-    queryset = Plant.objects.all()
-    lookup_field = "pk"
-
-
-class PlantByBOQItemView(APIView):
-    def get(self, request, boq_item_id):
-        plants = Plant.objects.filter(boq_item_id=boq_item_id)
-        serializer = PlantSerializer(plants, many=True)
-        return Response(serializer.data)
-
-
-# ---------- LABOUR ----------
-class LabourCreateView(generics.CreateAPIView):
-    serializer_class = LabourSerializer
-    queryset = Labour.objects.all()
-
-
-class LabourUpdateView(generics.UpdateAPIView):
-    serializer_class = LabourSerializer
-    queryset = Labour.objects.all()
-    lookup_field = "pk"
-
-
-class LabourByBOQItemView(APIView):
-    def get(self, request, boq_item_id):
-        labours = Labour.objects.filter(boq_item_id=boq_item_id)
-        serializer = LabourSerializer(labours, many=True)
-        return Response(serializer.data)
-
-
-# ---------- SUBCONTRACT ----------
-class SubcontractCreateView(generics.CreateAPIView):
-    serializer_class = SubcontractSerializer
-    queryset = Subcontract.objects.all()
-
-
-class SubcontractUpdateView(generics.UpdateAPIView):
-    serializer_class = SubcontractSerializer
-    queryset = Subcontract.objects.all()
-    lookup_field = "pk"
-
-
-class SubcontractByBOQItemView(APIView):
-    def get(self, request, boq_item_id):
-        subs = Subcontract.objects.filter(boq_item_id=boq_item_id)
-        serializer = SubcontractSerializer(subs, many=True)
-        return Response(serializer.data)
+        serializer = BOQItemCostUpdateSerializer(
+            boq_item, data=request.data, partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "BOQItem costs updated successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

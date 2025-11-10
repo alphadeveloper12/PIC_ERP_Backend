@@ -70,19 +70,37 @@ class MaterialSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class PlantSerializer(serializers.ModelSerializer):
+class BOQItemCostUpdateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Plant
-        fields = '__all__'
+        model = BOQItem
+        fields = [
+            "id",
+            "description",
+            "labor_hours",
+            "labor_amount",
+            "plant_rate",
+            "plant_amount",
+            "subcontract_rate",
+            "subcontract_amount",
+            "dry_cost",
+            "unit_rate",
+            "boq_amount",
+        ]
+        read_only_fields = [
+            "subcontract_amount",
+            "dry_cost",
+            "unit_rate",
+            "boq_amount",
+        ]
 
+    def update(self, instance, validated_data):
+        """
+        Update only provided fields, then trigger recalculation
+        via BOQItem.save().
+        """
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
 
-class LabourSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Labour
-        fields = '__all__'
-
-
-class SubcontractSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Subcontract
-        fields = '__all__'
+        # save() already recalculates everything in your model
+        instance.save()
+        return instance

@@ -115,11 +115,17 @@ class BOQItem(models.Model):
     prelimin = models.FloatField(blank=True, null=True)
     boq_amount = models.FloatField(blank=True, null=True)
 
-    # Actual values tracking
-    actual_qty = models.FloatField(blank=True, null=True)
-    actual_amount = models.FloatField(blank=True, null=True)
+    # Embedded category cost fields
+    labor_hours = models.FloatField(blank=True, null=True, default=0.0)
+    labor_amount = models.FloatField(blank=True, null=True, default=0.0)
 
-    # Metadata and order
+    plant_rate = models.FloatField(blank=True, null=True, default=0.0)
+    plant_amount = models.FloatField(blank=True, null=True, default=0.0)
+
+    subcontract_rate = models.FloatField(blank=True, null=True, default=0.0)
+    subcontract_amount = models.FloatField(blank=True, null=True, default=0.0)
+
+    # Other metadata
     sort_order = models.IntegerField(default=0)
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -132,65 +138,65 @@ class BOQItem(models.Model):
     def __str__(self):
         return f"{self.description} ({self.unit})"
 
-    def soft_delete(self, reason=""):
-        """Soft delete this item."""
-        self.is_deleted = True
-        self.deleted_at = timezone.now()
-        self.deleted_reason = reason
-        self.save(update_fields=["is_deleted", "deleted_at", "deleted_reason"])
+    def add_labour(self, hours):
+        self.labor_hours = hours
+        self.save()
 
-    def restore(self):
-        """Restore a previously deleted item."""
-        self.is_deleted = False
-        self.deleted_at = None
-        self.deleted_reason = ""
-        self.save(update_fields=["is_deleted", "deleted_at", "deleted_reason"])
+    def add_plant(self, rate):
+        self.plant_rate = rate
+        self.save()
+
+    def add_subcontract(self, rate):
+        self.subcontract_rate = rate
+        self.save()
 
     def save(self, *args, **kwargs):
         """
-        Extend save logic to recalculate derived amounts when explicitly requested
-        or when related models (materials/plants/labours/subcontracts) change.
+        Unified save method to calculate all BOQ-related costs directly inside BOQItem.
         """
-        force_calculation = kwargs.pop('force_calculation', False)
         is_new = self.pk is None
         super().save(*args, **kwargs)
 
-        if force_calculation and not is_new:
-            # Safely aggregate related amounts
-            material_sum = sum(float(m.amount or 0.0) for m in self.materials.all())
-            plant_sum = sum(float(p.amount or 0.0) for p in self.plants.all())
-            labour_sum = sum(float(l.amount or 0.0) for l in self.labours.all())
-            subcontract_sum = sum(float(s.amount or 0.0) for s in self.subcontracts.all())
+        # --- Step 1: Compute component costs ---
+        # Labour
+        if self.labor_hours and self.rate:
+            self.labor_amount = (self.plant_rate or 0) * (self.quantity or 0)
 
-            # Apply factor to materials
-            material_sum *= (1 + (self.factor or 0.0) / 100)
+        # Plant
+        if self.plant_rate:
+            self.plant_amount = self.plant_rate * float(self.quantity or 0)
 
-            # Compute roll-up total
-            self.boq_amount = material_sum + plant_sum + labour_sum + subcontract_sum
-            self.dry_cost = material_sum + plant_sum + labour_sum
+        # Subcontract
+        if self.subcontract_rate:
+            self.subcontract_amount = self.subcontract_rate * float(self.quantity or 0)
 
-            # 🔧 FIX: cast both sides to float for safe division
-            self.unit_rate = (
-                float(self.boq_amount) / float(self.quantity)
-                if self.quantity else None
-            )
+        # --- Step 2: Sum up total materials ---
+        material_sum = sum(float(m.amount or 0.0) for m in self.materials.all())
 
-            super().save(update_fields=["boq_amount", "dry_cost", "unit_rate"])
+        # Apply factor on materials
+        material_sum *= (1 + (self.factor or 0.0) / 100)
 
-    def clean(self):
-        if self.quantity == '':
-            self.quantity = None
-        if self.rate == '':
-            self.rate = None
-        if self.amount == '':
-            self.amount = None
+        # --- Step 3: Total cost roll-up ---
+        total_component_cost = (
+                float(self.labor_amount or 0) +
+                float(self.plant_amount or 0) +
+                float(self.subcontract_amount or 0)
+        )
 
-        # Continue with the validation
-        if self.quantity is None or self.rate is None or self.amount is None:
-            raise ValidationError('Quantity, rate, and amount must not be empty.')
+        self.dry_cost = material_sum + float(self.labor_amount or 0) + float(self.plant_amount or 0)
+        self.boq_amount = material_sum + total_component_cost
 
-        if self.quantity < 0 or self.rate < 0 or self.amount < 0:
-            raise ValidationError('Quantity, rate, and amount must be non-negative values.')
+        # --- Step 4: Unit Rate ---
+        self.unit_rate = (
+            float(self.boq_amount) / float(self.quantity)
+            if self.quantity else None
+        )
+
+        # Save updated computed fields
+        super().save(update_fields=[
+            "labor_amount", "plant_amount", "subcontract_amount",
+            "boq_amount", "dry_cost", "unit_rate"
+        ])
 
 
 class Material(models.Model):
@@ -217,63 +223,6 @@ class Material(models.Model):
         # Trigger roll-up recalculation
         if self.boq_item_id:
             self.boq_item.save(force_calculation=True)
-
-
-class Plant(models.Model):
-    boq_item = models.ForeignKey(BOQItem, related_name='plants', on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)
-    rate = models.FloatField(blank=True, null=True)
-    amount = models.FloatField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.name} - {self.boq_item.description}"
-
-    def save(self, *args, **kwargs):
-        """Trigger roll-up recalculation on parent BOQItem."""
-        if self.rate is not None and self.amount is None and self.boq_item.quantity:
-            self.amount = self.rate * float(self.boq_item.quantity)
-        super().save(*args, **kwargs)
-        if self.boq_item_id:
-            self.boq_item.save(force_calculation=True)
-
-
-
-class Labour(models.Model):
-    boq_item = models.ForeignKey(BOQItem, related_name='labours', on_delete=models.CASCADE)
-    role = models.CharField(max_length=255)
-    hours = models.FloatField(blank=True, null=True)
-    amount = models.FloatField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.role} - {self.boq_item.description}"
-
-    def save(self, *args, **kwargs):
-        """Recalculate labour cost and update parent item."""
-        if self.hours is not None and self.amount is None and self.boq_item.rate:
-            self.amount = self.hours * self.boq_item.rate
-        super().save(*args, **kwargs)
-        if self.boq_item_id:
-            self.boq_item.save(force_calculation=True)
-
-
-
-class Subcontract(models.Model):
-    boq_item = models.ForeignKey(BOQItem, related_name='subcontracts', on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)
-    rate = models.FloatField(blank=True, null=True)
-    amount = models.FloatField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.name} - {self.boq_item.description}"
-
-    def save(self, *args, **kwargs):
-        """Recalculate subcontract amount and roll up to parent item."""
-        if self.rate is not None and self.amount is None and self.boq_item.quantity:
-            self.amount = self.rate * float(self.boq_item.quantity)
-        super().save(*args, **kwargs)
-        if self.boq_item_id:
-            self.boq_item.save(force_calculation=True)
-
 
 
 class BOQRevision(models.Model):

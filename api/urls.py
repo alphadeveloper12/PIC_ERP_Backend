@@ -54,20 +54,6 @@ urlpatterns = [
     path("materials/", MaterialCreateView.as_view(), name="material-create"),
     path("materials/<int:pk>/", MaterialUpdateView.as_view(), name="material-update"),
     path("materials/by-item/<int:boq_item_id>/", MaterialByBOQItemView.as_view(), name="material-by-item"),
-
-    # --- PLANT ---
-    path("plants/", PlantCreateView.as_view(), name="plant-create"),
-    path("plants/<int:pk>/", PlantUpdateView.as_view(), name="plant-update"),
-    path("plants/by-item/<int:boq_item_id>/", PlantByBOQItemView.as_view(), name="plant-by-item"),
-
-    # --- LABOUR ---
-    path("labours/", LabourCreateView.as_view(), name="labour-create"),
-    path("labours/<int:pk>/", LabourUpdateView.as_view(), name="labour-update"),
-    path("labours/by-item/<int:boq_item_id>/", LabourByBOQItemView.as_view(), name="labour-by-item"),
-
-    # --- SUBCONTRACT ---
-    path("subcontracts/", SubcontractCreateView.as_view(), name="subcontract-create"),
-    path("subcontracts/<int:pk>/", SubcontractUpdateView.as_view(), name="subcontract-update"),
-    path("subcontracts/by-item/<int:boq_item_id>/", SubcontractByBOQItemView.as_view(), name="subcontract-by-item"),
+    path('boq-item/<int:boq_item_id>/update/', BOQItemCostUpdateView.as_view(), name='boqitem-update-costs'),
 
 ]
