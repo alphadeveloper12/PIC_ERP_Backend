@@ -128,12 +128,10 @@ class EstimationListView(APIView):
                 "data": None
             }, safe=False, status=status.HTTP_400_BAD_REQUEST)
 
-
 class UploadBOQ(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
-        # Extract the file and estimation_id from the request
         file = request.FILES.get('boq_file')
         estimation_id = request.data.get('estimation_id')
 
@@ -144,46 +142,54 @@ class UploadBOQ(APIView):
             return Response({'detail': 'Estimation ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Extract the Estimation object
             estimation = Estimation.objects.get(id=estimation_id)
         except Estimation.DoesNotExist:
             return Response({'detail': 'Estimation not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Process the BOQ file
         try:
             file_hash = calculate_file_hash(file)
-            # Check for existing BOQ with the same file hash for the given estimation
+
+            # Check if a BOQ with same file hash already exists
             existing_boq = BOQ.objects.filter(estimation=estimation, file_hash=file_hash).first()
             if existing_boq:
-                return Response({'detail': 'Duplicate BOQ file found, skipping extraction.'}, status=status.HTTP_200_OK)
+                return Response({
+                    'detail': 'Duplicate BOQ file found. Skipping extraction.',
+                    'boq_id': existing_boq.id
+                }, status=status.HTTP_200_OK)
 
-            # Proceed with BOQ data extraction
+            # Create and extract new BOQ
             boq = BOQ.objects.create(
                 name=f"BOQ for {estimation.subphase.name}",
                 estimation=estimation,
                 file_path=file,
                 file_hash=file_hash
             )
-            print(boq)
-            print(file)
-            resp = extract_boq(file, boq)
-            if resp:
-                return Response({'detail': 'BOQ data extracted and saved successfully.'}, status=status.HTTP_201_CREATED)
+
+            extraction_success = extract_boq(file, boq)
+            if extraction_success:
+                return Response({
+                    'detail': 'BOQ data extracted and saved successfully.',
+                    'boq_id': boq.id
+                }, status=status.HTTP_201_CREATED)
             else:
-                return Response({'detail': 'DID NOT EXTRACT'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    'detail': 'File upload succeeded but data extraction failed.',
+                    'boq_id': boq.id
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         except ValidationError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
+        except Exception as e:
+            print(f"Error in UploadBOQ: {e}")
+            return Response({'detail': 'Unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class BOQListView(APIView):
     # authentication_classes = [TokenAuthentication]
     # permission_classes = [IsAuthenticated]
 
     def get(self, request, **kwargs):
         try:
-            project_id = request.query_params.get('project_id')
-            boqs = BOQ.objects.filter(estimation__subphase__project_id=project_id)
+            estimation_id = request.query_params.get('estimation_id')
+            boqs = BOQ.objects.filter(estimation__subphase__project_id=estimation_id)
             data = BOQSerializer(boqs, many=True).data
 
             return JsonResponse({
