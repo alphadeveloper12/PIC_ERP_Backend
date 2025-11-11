@@ -953,3 +953,32 @@ class BOQItemCostUpdateView(APIView):
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+    
+
+
+class BOQItemEstimationUpsertView(APIView):
+    """
+    Upsert full estimation for a BOQ item (item fields, section factor, materials).
+    Consumes the flat payload your frontend already produces.
+    """
+
+    @transaction.atomic
+    def post(self, request, boq_item_id):
+        # sanity: enforce URL id == payload id
+        if str(request.data.get('item_id')) != str(boq_item_id):
+            return Response({"detail": "item_id mismatch"}, status=400)
+
+        # ensure item exists
+        get_object_or_404(BOQItem, id=boq_item_id)
+
+        ser = BOQItemEstimationUpsertSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        item = ser.save()
+
+        return Response({
+            "message": "Estimation saved",
+            "data": BOQItemSerializer(item).data
+        }, status=status.HTTP_200_OK)
