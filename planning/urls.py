@@ -1,6 +1,7 @@
 from django.urls import path
-from . import views
+from .views import UploadPrimaveraView, ProjectHierarchyView
 
 urlpatterns = [
-    path('import_all/', views.import_all_data, name='import_all_data'),  # The URL for importing data
+    path('upload/', UploadPrimaveraView.as_view(), name='upload-primavera'),
+    path('projects/', ProjectHierarchyView.as_view(), name='project-hierarchy'),
 ]
