@@ -45,7 +45,10 @@ INSTALLED_APPS = [
     'core',
     'projects',
     'estimation',
-    'api'
+    'planning',
+    'api',
+    'django_celery_results',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -152,3 +155,36 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080"
 ]
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Use in-memory broker for local dev (no Redis required)
+# CELERY_BROKER_URL = 'django://'
+# CELERY_RESULT_BACKEND = 'django-db'
+
+# Optional safety settings
+# CELERY_TASK_ALWAYS_EAGER = False  # leave False so it still queues asynchronously
+# CELERY_TASK_EAGER_PROPAGATES = True
+
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# CELERY_BROKER_URL = 'filesystem://'
+# CELERY_BROKER_TRANSPORT_OPTIONS = {
+#     "visibility_timeout": 3600,
+#     # SWAPPED: Django now writes to 'out', Celery reads from 'out'
+#     'data_folder_in': str(BASE_DIR / 'celery' / 'out'),         # where Django drops tasks
+#     'data_folder_out': str(BASE_DIR / 'celery' / 'in'),         # where Celery places acked tasks
+#     'data_folder_processed': str(BASE_DIR / 'celery' / 'processed'),
+# }
+
+# CELERY_RESULT_BACKEND = 'django-db'
+# ---------------- CELERY CONFIG ----------------
+CELERY_BROKER_URL = 'sqla+sqlite:///celerydb.sqlite3'  # local SQLite broker
+CELERY_RESULT_BACKEND = 'django-db'
+
+CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# Optional — increase message visibility timeout (safe default)
+# CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
