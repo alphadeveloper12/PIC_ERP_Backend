@@ -55,5 +55,6 @@ urlpatterns = [
     path("materials/<int:pk>/", MaterialUpdateView.as_view(), name="material-update"),
     path("materials/by-item/<int:boq_item_id>/", MaterialByBOQItemView.as_view(), name="material-by-item"),
     path('boq-item/<int:boq_item_id>/update/', BOQItemCostUpdateView.as_view(), name='boqitem-update-costs'),
+    path('boq-item/<int:boq_item_id>/upsert-estimation/', BOQItemEstimationUpsertView.as_view(), name='boqitem-update-costs'),
 
 ]

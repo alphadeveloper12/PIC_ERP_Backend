@@ -116,6 +116,7 @@ class BOQItem(models.Model):
     boq_amount = models.FloatField(blank=True, null=True)
 
     # Embedded category cost fields
+    labor_rate = models.FloatField(blank=True, null=True, default=0.0)
     labor_hours = models.FloatField(blank=True, null=True, default=0.0)
     labor_amount = models.FloatField(blank=True, null=True, default=0.0)
 
@@ -152,47 +153,61 @@ class BOQItem(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Unified save method to calculate all BOQ-related costs directly inside BOQItem.
+        Calculate rollups. If frontend already sends explicit numbers (rate/amount etc.),
+        we keep them, but we still recompute rollups based on current state.
         """
-        is_new = self.pk is None
+        # Custom flag if you ever want to force recomputation logic (not required)
+        force_recalc = kwargs.pop('force_recalc', False)
+
+        # Persist primitives first (ensures PK exists for new objects)
         super().save(*args, **kwargs)
 
-        # --- Step 1: Compute component costs ---
-        # Labour
-        if self.labor_hours and self.rate:
-            self.labor_amount = (self.plant_rate or 0) * (self.quantity or 0)
+        # --- Labour ---
+        # labour_amount = labour_rate * hours
+        if (self.labor_rate is not None) and (self.labor_hours is not None):
+            self.labor_amount = float(self.labor_rate or 0) * float(self.labor_hours or 0)
+        else:
+            self.labor_amount = float(self.labor_amount or 0)
 
-        # Plant
-        if self.plant_rate:
-            self.plant_amount = self.plant_rate * float(self.quantity or 0)
+        # --- Plant ---
+        # plant_amount = plant_rate * quantity
+        if self.plant_rate is not None:
+            self.plant_amount = float(self.plant_rate or 0) * float(self.quantity or 0)
+        else:
+            self.plant_amount = float(self.plant_amount or 0)
 
-        # Subcontract
-        if self.subcontract_rate:
-            self.subcontract_amount = self.subcontract_rate * float(self.quantity or 0)
+        # --- Subcontract ---
+        # subcontract_amount = subcontract_rate * quantity
+        if self.subcontract_rate is not None:
+            self.subcontract_amount = float(self.subcontract_rate or 0) * float(self.quantity or 0)
+        else:
+            self.subcontract_amount = float(self.subcontract_amount or 0)
 
-        # --- Step 2: Sum up total materials ---
+        # --- Material sum ---
         material_sum = sum(float(m.amount or 0.0) for m in self.materials.all())
 
-        # Apply factor on materials
-        material_sum *= (1 + (self.factor or 0.0) / 100)
+        # Apply factor on materials (as per your logic)
+        material_sum_with_factor = material_sum * (1 + float(self.factor or 0.0) / 100.0)
 
-        # --- Step 3: Total cost roll-up ---
+        # Components total
         total_component_cost = (
-                float(self.labor_amount or 0) +
-                float(self.plant_amount or 0) +
-                float(self.subcontract_amount or 0)
+            float(self.labor_amount or 0) +
+            float(self.plant_amount or 0) +
+            float(self.subcontract_amount or 0)
         )
 
+        # Dry cost (materials + labour + plant)
         self.dry_cost = material_sum + float(self.labor_amount or 0) + float(self.plant_amount or 0)
-        self.boq_amount = material_sum + total_component_cost
 
-        # --- Step 4: Unit Rate ---
+        # BOQ amount = materials(with factor) + all components
+        self.boq_amount = material_sum_with_factor + total_component_cost
+
+        # Unit rate based on BOQ amount
         self.unit_rate = (
             float(self.boq_amount) / float(self.quantity)
             if self.quantity else None
         )
 
-        # Save updated computed fields
         super().save(update_fields=[
             "labor_amount", "plant_amount", "subcontract_amount",
             "boq_amount", "dry_cost", "unit_rate"
@@ -212,18 +227,18 @@ class Material(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Automatically calculate material amount and trigger parent BOQItem recalculation.
+        If FE provides unit_rate and amount, we accept them.
+        Otherwise compute amount = rate * u_rate * (1 + wastage%).
         """
-        if self.rate is not None and self.u_rate is not None:
-            wastage_factor = 1 + (self.wastage or 0) / 100
-            self.amount = self.rate * self.u_rate * wastage_factor
+        if self.amount is None and self.rate is not None and self.u_rate is not None:
+            wastage_factor = 1 + (self.wastage or 0) / 100.0
+            self.amount = float(self.rate or 0) * float(self.u_rate or 0) * wastage_factor
 
         super().save(*args, **kwargs)
 
-        # Trigger roll-up recalculation
+        # Recompute parent item rollups
         if self.boq_item_id:
-            self.boq_item.save(force_calculation=True)
-
+            self.boq_item.save()
 
 class BOQRevision(models.Model):
     boq = models.ForeignKey(BOQ, related_name='revisions', on_delete=models.CASCADE)
