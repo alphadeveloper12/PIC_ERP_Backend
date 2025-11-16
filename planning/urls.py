@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import XerImportAPIView
+from .views import UploadPrimaveraView, ProjectHierarchyView
 
 urlpatterns = [
-    path('planning/<int:planning_id>/import-xer/', XerImportAPIView.as_view(), name='import-xer'),
-    # path('api/xer-imports/<int:id>/status/', XerImportJobStatusAPIView.as_view(), name='xer-import-status'),
+    path('upload/', UploadPrimaveraView.as_view(), name='upload-primavera'),
+    path('projects/', ProjectHierarchyView.as_view(), name='project-hierarchy'),
 ]

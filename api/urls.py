@@ -5,9 +5,10 @@ from django.urls import path
 #     BoqView, BoqDetailView, BoqExcelUploadView
 # )
 from estimation.views import *
-from core.views import CompanyCreateView, CompanyListView, ProfileCreateView, ProfileListView
+from core.views import *
 from projects.views import SubPhaseListView, SubPhaseCreateView, ProjectCreateView, \
     ProjectUpdateView, ProjectDetailView, ProjectListView
+from django.urls import path
 
 urlpatterns = [
     # path("projects/", ProjectView.as_view(), name="project-list-create"),
@@ -50,11 +51,42 @@ urlpatterns = [
     path('export/excel/<int:boq_id>', ExportExcelView.as_view()),
     path('export/pdf/<int:boq_id>', ExportPDFView.as_view()),
 
+
     # --- MATERIAL ---
     path("materials/", MaterialCreateView.as_view(), name="material-create"),
     path("materials/<int:pk>/", MaterialUpdateView.as_view(), name="material-update"),
     path("materials/by-item/<int:boq_item_id>/", MaterialByBOQItemView.as_view(), name="material-by-item"),
-    path('boq-item/<int:boq_item_id>/update/', BOQItemCostUpdateView.as_view(), name='boqitem-update-costs'),
-    path('boq-item/<int:boq_item_id>/upsert-estimation/', BOQItemEstimationUpsertView.as_view(), name='boqitem-update-costs'),
+
+    # --- PLANT ---
+    path("plants/", PlantCreateView.as_view(), name="plant-create"),
+    path("plants/<int:pk>/", PlantUpdateView.as_view(), name="plant-update"),
+    path("plants/by-item/<int:boq_item_id>/", PlantByBOQItemView.as_view(), name="plant-by-item"),
+
+    # --- LABOUR ---
+    path("labours/", LabourCreateView.as_view(), name="labour-create"),
+    path("labours/<int:pk>/", LabourUpdateView.as_view(), name="labour-update"),
+    path("labours/by-item/<int:boq_item_id>/", LabourByBOQItemView.as_view(), name="labour-by-item"),
+
+    # --- SUBCONTRACT ---
+    path("subcontracts/", SubcontractCreateView.as_view(), name="subcontract-create"),
+    path("subcontracts/<int:pk>/", SubcontractUpdateView.as_view(), name="subcontract-update"),
+    path("subcontracts/by-item/<int:boq_item_id>/", SubcontractByBOQItemView.as_view(), name="subcontract-by-item"),
+
+
+    path("departments/", DepartmentListView.as_view()),
+    path("departments/create/", DepartmentCreateView.as_view()),
+
+    path("roles/", RoleListView.as_view()),
+    path("roles/create/", RoleCreateView.as_view()),
+
+    path("permissions/", PermissionListView.as_view()),
+    path("permissions/create/", PermissionCreateView.as_view()),
+
+    path("roles/assign-permissions/", RolePermissionAssignView.as_view()),
+
+    path("user-roles/", UserRolesListView.as_view()),
+    path("user-roles/create/", UserRoleAssignView.as_view()),
+
+    path("auth/me/", MeView.as_view()),
 
 ]

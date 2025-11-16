@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
-from io import BytesIO
+
 from .serializers import *
 import json
 
@@ -17,9 +17,7 @@ from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.response import Response
 from django.db import transaction
-from django.http import HttpResponse
-import io
-from .serializers import BOQItemCostUpdateSerializer
+
 from estimation.models import BOQItem, Subsection, Section
 from .serializers import BOQItemSerializer
 from excel.serializers import AppConfigKV, AppConfigSerializer
@@ -36,7 +34,7 @@ from reportlab.lib.pagesizes import A3, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
-
+from io import BytesIO
 
 
 # Estimation Views
@@ -127,10 +125,12 @@ class EstimationListView(APIView):
                 "data": None
             }, safe=False, status=status.HTTP_400_BAD_REQUEST)
 
+
 class UploadBOQ(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
+        # Extract the file and estimation_id from the request
         file = request.FILES.get('boq_file')
         estimation_id = request.data.get('estimation_id')
 
@@ -141,54 +141,46 @@ class UploadBOQ(APIView):
             return Response({'detail': 'Estimation ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Extract the Estimation object
             estimation = Estimation.objects.get(id=estimation_id)
         except Estimation.DoesNotExist:
             return Response({'detail': 'Estimation not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Process the BOQ file
         try:
             file_hash = calculate_file_hash(file)
-
-            # Check if a BOQ with same file hash already exists
+            # Check for existing BOQ with the same file hash for the given estimation
             existing_boq = BOQ.objects.filter(estimation=estimation, file_hash=file_hash).first()
             if existing_boq:
-                return Response({
-                    'detail': 'Duplicate BOQ file found. Skipping extraction.',
-                    'boq_id': existing_boq.id
-                }, status=status.HTTP_200_OK)
+                return Response({'detail': 'Duplicate BOQ file found, skipping extraction.'}, status=status.HTTP_200_OK)
 
-            # Create and extract new BOQ
+            # Proceed with BOQ data extraction
             boq = BOQ.objects.create(
                 name=f"BOQ for {estimation.subphase.name}",
                 estimation=estimation,
                 file_path=file,
                 file_hash=file_hash
             )
-
-            extraction_success = extract_boq(file, boq)
-            if extraction_success:
-                return Response({
-                    'detail': 'BOQ data extracted and saved successfully.',
-                    'boq_id': boq.id
-                }, status=status.HTTP_201_CREATED)
+            print(boq)
+            print(file)
+            resp = extract_boq(file, boq)
+            if resp:
+                return Response({'detail': 'BOQ data extracted and saved successfully.'}, status=status.HTTP_201_CREATED)
             else:
-                return Response({
-                    'detail': 'File upload succeeded but data extraction failed.',
-                    'boq_id': boq.id
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'DID NOT EXTRACT'}, status=status.HTTP_400_BAD_REQUEST)
 
         except ValidationError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(f"Error in UploadBOQ: {e}")
-            return Response({'detail': 'Unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class BOQListView(APIView):
     # authentication_classes = [TokenAuthentication]
     # permission_classes = [IsAuthenticated]
 
     def get(self, request, **kwargs):
         try:
-            estimation_id = request.query_params.get('estimation_id')
-            boqs = BOQ.objects.filter(estimation__subphase__project_id=estimation_id)
+            project_id = request.query_params.get('project_id')
+            boqs = BOQ.objects.filter(estimation__subphase__project_id=project_id)
             data = BOQSerializer(boqs, many=True).data
 
             return JsonResponse({
@@ -491,7 +483,6 @@ class ReorderView(APIView):
             for idx, _id in enumerate(ids, start=1):
                 BOQItem.objects.filter(pk=_id, subsection_id=subsection_id).update(sort_order=idx)
         return Response({"message": "Reordered"}, status=200)
-
 
 class ExportExcelView(APIView):
     """
@@ -903,8 +894,6 @@ class ExportPDFView(APIView):
         response["Content-Disposition"] = f"attachment; filename=BOQ_{boq_id}_Detailed.pdf"
         return response
 
-
-
 # ---------- MATERIAL ----------
 class MaterialCreateView(generics.CreateAPIView):
     serializer_class = MaterialSerializer
@@ -924,61 +913,60 @@ class MaterialByBOQItemView(APIView):
         return Response(serializer.data)
 
 
-class BOQItemCostUpdateView(APIView):
-    """
-    Unified API to update BOQItem costs:
-    Supports labour, plant, and subcontract cost additions/updates in a single endpoint.
-    """
-
-    def post(self, request, boq_item_id):
-        """
-        Accepts JSON payload like:
-        {
-            "labor_hours": 5,
-            "labor_rate": 120,
-            "plant_rate": 200,
-            "subcontract_rate": 350
-        }
-        Only provided fields will be updated.
-        """
-        boq_item = get_object_or_404(BOQItem, id=boq_item_id)
-
-        serializer = BOQItemCostUpdateSerializer(
-            boq_item, data=request.data, partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                "message": "BOQItem costs updated successfully",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
-    
-    
+# ---------- PLANT ----------
+class PlantCreateView(generics.CreateAPIView):
+    serializer_class = PlantSerializer
+    queryset = Plant.objects.all()
 
 
-class BOQItemEstimationUpsertView(APIView):
-    """
-    Upsert full estimation for a BOQ item (item fields, section factor, materials).
-    Consumes the flat payload your frontend already produces.
-    """
+class PlantUpdateView(generics.UpdateAPIView):
+    serializer_class = PlantSerializer
+    queryset = Plant.objects.all()
+    lookup_field = "pk"
 
-    @transaction.atomic
-    def post(self, request, boq_item_id):
-        # sanity: enforce URL id == payload id
-        if str(request.data.get('item_id')) != str(boq_item_id):
-            return Response({"detail": "item_id mismatch"}, status=400)
 
-        # ensure item exists
-        get_object_or_404(BOQItem, id=boq_item_id)
+class PlantByBOQItemView(APIView):
+    def get(self, request, boq_item_id):
+        plants = Plant.objects.filter(boq_item_id=boq_item_id)
+        serializer = PlantSerializer(plants, many=True)
+        return Response(serializer.data)
 
-        ser = BOQItemEstimationUpsertSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        item = ser.save()
 
-        return Response({
-            "message": "Estimation saved",
-            "data": BOQItemSerializer(item).data
-        }, status=status.HTTP_200_OK)
+# ---------- LABOUR ----------
+class LabourCreateView(generics.CreateAPIView):
+    serializer_class = LabourSerializer
+    queryset = Labour.objects.all()
+
+
+class LabourUpdateView(generics.UpdateAPIView):
+    serializer_class = LabourSerializer
+    queryset = Labour.objects.all()
+    lookup_field = "pk"
+
+
+class LabourByBOQItemView(APIView):
+    def get(self, request, boq_item_id):
+        labours = Labour.objects.filter(boq_item_id=boq_item_id)
+        serializer = LabourSerializer(labours, many=True)
+        return Response(serializer.data)
+
+
+# ---------- SUBCONTRACT ----------
+class SubcontractCreateView(generics.CreateAPIView):
+    serializer_class = SubcontractSerializer
+    queryset = Subcontract.objects.all()
+
+
+class SubcontractUpdateView(generics.UpdateAPIView):
+    serializer_class = SubcontractSerializer
+    queryset = Subcontract.objects.all()
+    lookup_field = "pk"
+
+
+class SubcontractByBOQItemView(APIView):
+    def get(self, request, boq_item_id):
+        subs = Subcontract.objects.filter(boq_item_id=boq_item_id)
+        serializer = SubcontractSerializer(subs, many=True)
+        return Response(serializer.data)
+
+
