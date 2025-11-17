@@ -114,3 +114,46 @@ class ProjectHierarchyView(generics.ListAPIView):
     """
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
+    
+    
+
+# planning/api/views.py
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+
+from estimation.models import BOQItem
+from .services.p6_extractor import P6Extractor
+from .services.matching_engine import MatchingEngine
+from .services.confidence_engine import classify_confidence
+
+import pandas as pd
+
+
+class UploadP6AndMatch(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        file = request.FILES.get("planning_sheet")
+        if not file:
+            return Response({"error": "planning_sheet file is required"}, status=400)
+
+        # 1. Extract and save P6 data
+        p6_df = P6Extractor.extract_and_save(file)
+
+        # 2. Load BOQ Items
+        boq_items = BOQItem.objects.filter(is_deleted=False)
+        boq_df = pd.DataFrame(list(boq_items.values(
+            "id", "description", "unit", "quantity", "subsection__code"
+        ))).rename(columns={"subsection__code": "code"})
+
+        # 3. Match & Save in MappingResult
+        matches = MatchingEngine.match_and_save(boq_df, p6_df)
+
+        return Response({
+            "status": "success",
+            "message": "Matching complete and saved.",
+            "matched_items": len(matches),
+            "mapping_preview": matches[:10],  # send few for preview
+        })
