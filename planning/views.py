@@ -160,36 +160,35 @@ class UploadP6AndMatch(APIView):
     def post(self, request):
         file = request.FILES.get("planning_sheet")
         if not file:
-            return Response({"error": "planning_sheet file is required"}, status=400)
-
-        # 1. Extract + bulk save P6
-        p6_df = P6Extractor.extract_and_save(file)
-
-        # 2. Load BOQ Items properly (model-safe)
-        boq_items = (
-            BOQItem.objects
-                .filter(is_deleted=False)
-                .select_related("subsection")
-                .values(
-                    "id",
-                    "description",
-                    "unit",
-                    "quantity",
-                    "subsection__name",
-                )
-        )
-
-        boq_df = pd.DataFrame(list(boq_items))
-
-        # 3. Extract code from subsection name
-        boq_df["code"] = boq_df["subsection__name"].apply(extract_boq_code)
-
-        # 4. Matching engine runs vectorized matching
-        matches = MatchingEngine.match_and_save(boq_df, p6_df)
-
-        return Response({
-            "status": "success",
-            "message": "Matching complete and saved.",
-            "matched_items": len(matches),
-            "mapping_preview": matches,
-        })
+            return Response(
+                {"error": "No file provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Step 1: Extract P6 data
+            logger.info("Extracting P6 activities...")
+            p6_df = P6Extractor.extract_and_save(file)
+            
+            # Step 2: Rebuild ChromaDB index with correct dimensions
+            logger.info("Rebuilding ChromaDB BOQ index...")
+            indexer = ChromaBOQIndexer()
+            indexer.rebuild_index()
+            
+            # Step 3: Perform matching
+            logger.info("Starting matching process...")
+            engine = LLMMatchingEngine()
+            matches = engine.match_and_save(p6_df)
+            
+            return Response({
+                "status": "success",
+                "matched": len(matches),
+                "sample": matches[:10]
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error during upload and match: {str(e)}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
