@@ -1,0 +1,442 @@
+{
+	"info": {
+		"_postman_id": "06ee8ab9-1dfc-4097-8ea7-008dc1764a1d",
+		"name": "PIC ERP Backend",
+		"description": "ERP System endpoints for Django backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30945215"
+	},
+	"item": [
+		{
+			"name": "Companies",
+			"item": [
+				{
+					"name": "List Companies",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/companies/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"companies",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Company",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"New Construction Co.\",\n  \"code\": \"NCC01\",\n  \"image\": null,\n  \"address\": \"Dubai, UAE\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/companies/create/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"companies",
+								"create",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Departments",
+			"item": [
+				{
+					"name": "List Departments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/departments/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"departments",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Department",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Engineering\",\n  \"description\": \"Engineering & Design Department\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/departments/create/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"departments",
+								"create",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Roles",
+			"item": [
+				{
+					"name": "List Roles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/roles/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"roles",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"QA/QC Engineer\",\n  \"department\": 7,\n  \"description\": \"Responsible for site quality control\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/roles/create/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"roles",
+								"create",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Permissions",
+			"item": [
+				{
+					"name": "List Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/permissions/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"permissions",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Permission",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"create_po\",\n  \"description\": \"Create Purchase Orders\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/permissions/create/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"permissions",
+								"create",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Role Permissions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"role_id\": 3,\n  \"permission_codes\": [\"create_po\", \"approve_pr_po\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/roles/assign-permissions/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"roles",
+								"assign-permissions",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User Roles",
+			"item": [
+				{
+					"name": "List User Roles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/user-roles/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"user-roles",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Assign User Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user\": 102,\n  \"department\": 4,\n  \"role\": 3\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/user-roles/assign/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"user-roles",
+								"assign",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Profiles / Employees",
+			"item": [
+				{
+					"name": "List Profiles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/profiles/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"profiles",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user\": 105,\n  \"company\": 1,\n  \"role\": \"Buyer Engineer\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/profiles/create/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"profiles",
+								"create",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Current User Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/auth/me/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"auth",
+								"me",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Positions & Employees",
+			"item": [
+				{
+					"name": "List Positions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/positions/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"positions",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user\": 106,\n  \"company\": 1,\n  \"position\": 3,\n  \"grade\": 4,\n  \"first_name\": \"Ali\",\n  \"last_name\": \"Mughal\",\n  \"nationality\": \"Pakistan\",\n  \"hire_date\": \"2025-02-01\",\n  \"work_location\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/employees/create/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"core",
+								"employees",
+								"create",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000"
+		}
+	]
+}
