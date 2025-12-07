@@ -114,8 +114,8 @@ class ProjectHierarchyView(generics.ListAPIView):
     """
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
-    
-    
+
+
 # planning/views.py
 
 from rest_framework.views import APIView
@@ -124,7 +124,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 
 from estimation.models import BOQItem
 from .services.p6_extractor import P6Extractor
-from .services.matching_engine import MatchingEngine
+#from .services.matching_engine import MatchingEngine
 
 import pandas as pd
 import re
@@ -153,42 +153,42 @@ def extract_boq_code(name: str):
 
     return first_token
 
-
-class UploadP6AndMatch(APIView):
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        file = request.FILES.get("planning_sheet")
-        if not file:
-            return Response(
-                {"error": "No file provided"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            # Step 1: Extract P6 data
-            logger.info("Extracting P6 activities...")
-            p6_df = P6Extractor.extract_and_save(file)
-            
-            # Step 2: Rebuild ChromaDB index with correct dimensions
-            logger.info("Rebuilding ChromaDB BOQ index...")
-            indexer = ChromaBOQIndexer()
-            indexer.rebuild_index()
-            
-            # Step 3: Perform matching
-            logger.info("Starting matching process...")
-            engine = LLMMatchingEngine()
-            matches = engine.match_and_save(p6_df)
-            
-            return Response({
-                "status": "success",
-                "matched": len(matches),
-                "sample": matches[:10]
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"Error during upload and match: {str(e)}", exc_info=True)
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+#
+# class UploadP6AndMatch(APIView):
+#     parser_classes = [MultiPartParser, FormParser]
+#
+#     def post(self, request):
+#         file = request.FILES.get("planning_sheet")
+#         if not file:
+#             return Response(
+#                 {"error": "No file provided"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#
+#         try:
+#             # Step 1: Extract P6 data
+#             logger.info("Extracting P6 activities...")
+#             p6_df = P6Extractor.extract_and_save(file)
+#
+#             # Step 2: Rebuild ChromaDB index with correct dimensions
+#             logger.info("Rebuilding ChromaDB BOQ index...")
+#             indexer = ChromaBOQIndexer()
+#             indexer.rebuild_index()
+#
+#             # Step 3: Perform matching
+#             logger.info("Starting matching process...")
+#             engine = LLMMatchingEngine()
+#             matches = engine.match_and_save(p6_df)
+#
+#             return Response({
+#                 "status": "success",
+#                 "matched": len(matches),
+#                 "sample": matches[:10]
+#             }, status=status.HTTP_200_OK)
+#
+#         except Exception as e:
+#             logger.error(f"Error during upload and match: {str(e)}", exc_info=True)
+#             return Response(
+#                 {"error": str(e)},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )

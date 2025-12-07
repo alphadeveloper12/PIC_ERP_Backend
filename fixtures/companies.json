@@ -1,0 +1,32 @@
+[
+  {
+    "model": "core.company",
+    "pk": 1,
+    "fields": {
+      "name": "Gulf Build Contracting LLC",
+      "code": "GBC-UAE",
+      "image": "",
+      "address": "Business Bay, Dubai, UAE",
+      "country": "UAE",
+      "city": "Dubai",
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.company",
+    "pk": 2,
+    "fields": {
+      "name": "Gulf Build KSA",
+      "code": "GBKSA",
+      "image": "",
+      "address": "Riyadh, Saudi Arabia",
+      "country": "Saudi Arabia",
+      "city": "Riyadh",
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

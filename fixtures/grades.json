@@ -1,0 +1,10 @@
+[
+  {"model":"core.grade","pk":1,"fields":{"code":"G12","label":"Director","rank":1,"approval_limit":"5000000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":2,"fields":{"code":"G11","label":"Head of Department","rank":2,"approval_limit":"2000000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":3,"fields":{"code":"G10","label":"Senior Manager / Project Director","rank":3,"approval_limit":"1000000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":4,"fields":{"code":"G9","label":"Manager / Project Manager","rank":4,"approval_limit":"300000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":5,"fields":{"code":"G8","label":"Senior Engineer / Specialist","rank":5,"approval_limit":"100000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":6,"fields":{"code":"G7","label":"Engineer / Officer","rank":6,"approval_limit":"30000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":7,"fields":{"code":"G6","label":"Junior Engineer / Junior Officer","rank":7,"approval_limit":"5000.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.grade","pk":8,"fields":{"code":"G5","label":"Coordinator / Assistant","rank":8,"approval_limit":"0.00","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}}
+]

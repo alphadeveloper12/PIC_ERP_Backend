@@ -1,0 +1,167 @@
+[
+  {
+    "model": "core.position",
+    "pk": 1,
+    "fields": {
+      "department": 4,
+      "job_title": 1,
+      "grade": 3,
+      "location": 1,
+      "reports_to": null,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 2,
+    "fields": {
+      "department": 4,
+      "job_title": 2,
+      "grade": 4,
+      "location": 2,
+      "reports_to": 1,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 3,
+    "fields": {
+      "department": 4,
+      "job_title": 4,
+      "grade": 5,
+      "location": 2,
+      "reports_to": 2,
+      "is_managerial": false,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 4,
+    "fields": {
+      "department": 5,
+      "job_title": 6,
+      "grade": 4,
+      "location": 2,
+      "reports_to": 1,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 5,
+    "fields": {
+      "department": 7,
+      "job_title": 13,
+      "grade": 4,
+      "location": 2,
+      "reports_to": 1,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 6,
+    "fields": {
+      "department": 6,
+      "job_title": 10,
+      "grade": 4,
+      "location": 1,
+      "reports_to": 1,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 7,
+    "fields": {
+      "department": 15,
+      "job_title": 32,
+      "grade": 4,
+      "location": 1,
+      "reports_to": 1,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 8,
+    "fields": {
+      "department": 9,
+      "job_title": 17,
+      "grade": 4,
+      "location": 1,
+      "reports_to": 1,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 9,
+    "fields": {
+      "department": 10,
+      "job_title": 20,
+      "grade": 4,
+      "location": 1,
+      "reports_to": 8,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 11,
+    "fields": {
+      "department": 11,
+      "job_title": 23,
+      "grade": 5,
+      "location": 2,
+      "reports_to": 9,
+      "is_managerial": true,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.position",
+    "pk": 10,
+    "fields": {
+      "department": 11,
+      "job_title": 24,
+      "grade": 8,
+      "location": 2,
+      "reports_to": 11,
+      "is_managerial": false,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

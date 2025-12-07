@@ -1,6 +1,6 @@
 # estimation/models.py
 from django.db import models
-from core.models import TimeStampedModel, Company, Profile, Currency
+from core.models import TimeStampedModel, Company, Employee, Currency
 from projects.models import Project, SubPhase
 from django.core.exceptions import ValidationError
 import hashlib
@@ -32,14 +32,14 @@ class Estimation(models.Model):
         db_index=True,
     )
     prepared_by = models.ForeignKey(
-        Profile,
+        Employee,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="prepared_estimations",
     )
     approved_by = models.ForeignKey(
-        Profile,
+        Employee,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

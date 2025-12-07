@@ -1,0 +1,7 @@
+[
+  {"model":"core.location","pk":1,"fields":{"company":1,"name":"Dubai HO","address":"Business Bay, Dubai","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.location","pk":2,"fields":{"company":1,"name":"Dubai Site A","address":"Dubai","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.location","pk":3,"fields":{"company":1,"name":"Dubai Site B","address":"Dubai","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.location","pk":4,"fields":{"company":2,"name":"Riyadh HO","address":"Riyadh","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.location","pk":5,"fields":{"company":2,"name":"Riyadh Site C","address":"Riyadh","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}}
+]

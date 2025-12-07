@@ -1,0 +1,49 @@
+[
+  {"model":"core.jobtitle","pk":1,"fields":{"name":"Project Director","job_family":3,"default_grade":3,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":2,"fields":{"name":"Project Manager","job_family":3,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":3,"fields":{"name":"Construction Manager","job_family":3,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":4,"fields":{"name":"Senior Site Engineer (Civil/Structural)","job_family":3,"default_grade":5,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":5,"fields":{"name":"Site Engineer (Civil/Structural)","job_family":3,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":6,"fields":{"name":"MEP Project Manager","job_family":4,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":7,"fields":{"name":"Senior MEP Engineer","job_family":4,"default_grade":5,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":8,"fields":{"name":"MEP Site Engineer (Electrical)","job_family":4,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":9,"fields":{"name":"MEP Site Engineer (Mechanical)","job_family":4,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":10,"fields":{"name":"Planning Manager","job_family":5,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":11,"fields":{"name":"Planning Engineer","job_family":5,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":12,"fields":{"name":"Cost Control Engineer","job_family":5,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":13,"fields":{"name":"QA/QC Manager","job_family":6,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":14,"fields":{"name":"QA/QC Engineer","job_family":6,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":15,"fields":{"name":"HSE Manager","job_family":7,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":16,"fields":{"name":"HSE Officer","job_family":7,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":17,"fields":{"name":"Commercial Manager","job_family":8,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":18,"fields":{"name":"Senior Quantity Surveyor","job_family":8,"default_grade":5,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":19,"fields":{"name":"Quantity Surveyor","job_family":8,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":20,"fields":{"name":"Procurement Manager","job_family":9,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":21,"fields":{"name":"Senior Buyer","job_family":9,"default_grade":5,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":22,"fields":{"name":"Buyer / Procurement Engineer","job_family":9,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":23,"fields":{"name":"Stores Manager","job_family":10,"default_grade":5,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":24,"fields":{"name":"Storekeeper","job_family":10,"default_grade":8,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":25,"fields":{"name":"Finance Manager","job_family":11,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":26,"fields":{"name":"Senior Accountant","job_family":11,"default_grade":5,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":27,"fields":{"name":"Accountant (AP/AR)","job_family":11,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":28,"fields":{"name":"HR Manager","job_family":12,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":29,"fields":{"name":"PRO Officer","job_family":12,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":30,"fields":{"name":"IT Manager","job_family":13,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":31,"fields":{"name":"ERP Administrator","job_family":13,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":32,"fields":{"name":"Authority Approvals Manager","job_family":14,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":33,"fields":{"name":"Authority Liaison Engineer","job_family":14,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.jobtitle","pk":34,"fields":{"name":"BIM Manager","job_family":15,"default_grade":4,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.jobtitle","pk":35,"fields":{"name":"BIM Modeler","job_family":15,"default_grade":6,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}}
+]

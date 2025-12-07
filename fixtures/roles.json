@@ -1,0 +1,19 @@
+[
+  {"model":"core.role","pk":1,"fields":{"name":"Department Head","department":3,"description":"Head of Engineering","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.role","pk":2,"fields":{"name":"Senior Engineer","department":3,"description":"Senior engineer role","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.role","pk":3,"fields":{"name":"Project Manager","department":4,"description":"PM role","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.role","pk":4,"fields":{"name":"Site Engineer","department":4,"description":"Site engineer role","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.role","pk":5,"fields":{"name":"Planning Manager","department":6,"description":"Planning lead","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.role","pk":6,"fields":{"name":"Planning Engineer","department":6,"description":"Planning engineer","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.role","pk":7,"fields":{"name":"Commercial Manager","department":9,"description":"Commercial lead","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.role","pk":8,"fields":{"name":"Quantity Surveyor","department":9,"description":"QS","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.role","pk":9,"fields":{"name":"Procurement Manager","department":10,"description":"Procurement lead","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.role","pk":10,"fields":{"name":"Buyer","department":10,"description":"Buyer/Procurement Engineer","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.role","pk":11,"fields":{"name":"QA/QC Manager","department":7,"description":"QA/QC lead","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.role","pk":12,"fields":{"name":"QA/QC Engineer","department":7,"description":"QA/QC engineer","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}}
+]

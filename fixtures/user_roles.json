@@ -1,0 +1,57 @@
+[
+  {
+    "model": "core.userrole",
+    "pk": 301,
+    "fields": {
+      "user": 101,
+      "department": 4,
+      "role": 3,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.userrole",
+    "pk": 302,
+    "fields": {
+      "user": 102,
+      "department": 4,
+      "role": 3,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.userrole",
+    "pk": 303,
+    "fields": {
+      "user": 103,
+      "department": 7,
+      "role": 11,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.userrole",
+    "pk": 304,
+    "fields": {
+      "user": 104,
+      "department": 6,
+      "role": 5,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.userrole",
+    "pk": 305,
+    "fields": {
+      "user": 105,
+      "department": 10,
+      "role": 10,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]

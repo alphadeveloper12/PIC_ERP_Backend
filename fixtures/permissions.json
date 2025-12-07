@@ -1,0 +1,23 @@
+[
+  {"model":"core.permission","pk":1,"fields":{"code":"view_company","description":"View companies","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":2,"fields":{"code":"manage_company","description":"Create/Update companies","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.permission","pk":10,"fields":{"code":"view_department","description":"View departments","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":11,"fields":{"code":"manage_department","description":"Create/Update departments","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.permission","pk":20,"fields":{"code":"view_roles","description":"View roles","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":21,"fields":{"code":"manage_roles","description":"Create/Update roles","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":22,"fields":{"code":"assign_role_permissions","description":"Assign permissions to roles","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.permission","pk":30,"fields":{"code":"view_employees","description":"View employees","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":31,"fields":{"code":"manage_employees","description":"Create/Update employees","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.permission","pk":40,"fields":{"code":"view_procurement","description":"View PR/PO","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":41,"fields":{"code":"approve_pr_po","description":"Approve PR/PO","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":42,"fields":{"code":"create_pr_po","description":"Create PR/PO","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.permission","pk":50,"fields":{"code":"view_commercial","description":"View contracts/claims","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+  {"model":"core.permission","pk":51,"fields":{"code":"manage_variations","description":"Create/Approve variations","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}},
+
+  {"model":"core.permission","pk":60,"fields":{"code":"admin_panel","description":"System admin","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}}
+]

@@ -1,0 +1,24 @@
+python manage.py loaddata core/fixtures/companies.json
+python manage.py loaddata core/fixtures/locations.json
+python manage.py loaddata core/fixtures/grades.json
+python manage.py loaddata core/fixtures/job_families.json
+python manage.py loaddata core/fixtures/departments.json
+python manage.py loaddata core/fixtures/job_titles.json
+python manage.py loaddata core/fixtures/permissions.json
+python manage.py loaddata core/fixtures/roles.json
+python manage.py loaddata core/fixtures/role_permissions.json
+
+python manage.py loaddata fixtures/users.json
+python manage.py loaddata fixtures/positions.json
+python manage.py loaddata fixtures/employees.json
+python manage.py loaddata fixtures/user_roles.json
+
+
+
+from django.contrib.auth import get_user_model
+U = get_user_model()
+for username in ["pdirector","pmanager","qaqcman","planman","buyer"]:
+    u = U.objects.get(username=username)
+    u.set_password("changeMe123")
+    u.save()
+exit()
