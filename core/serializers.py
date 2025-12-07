@@ -152,20 +152,48 @@ class EmployeeSerializer(serializers.ModelSerializer):
         ]
 
 
-class ProfileSerializer(EmployeeSerializer):
-    """
-    Backwards compatibility shim for the old `Profile` endpoints.
-    Accepts an optional legacy `role` field and ignores it safely.
-    """
-    # Legacy input support: allow `role` (string) without raising errors.
-    role = serializers.CharField(write_only=True, required=False, allow_blank=True)
+class ProfileSerializer(serializers.ModelSerializer):
+    # Backward-compat with old API: accept a free-text "role" on write,
+    # and expose "role_display" from the current Position/JobTitle on read.
+    role: serializers.CharField = serializers.CharField(
+        required=False, allow_blank=True, write_only=True
+    )
+    role_display: serializers.SerializerMethodField = serializers.SerializerMethodField(read_only=True)
 
-    def create(self, validated_data: Dict[str, Any]) -> Employee:
-        validated_data.pop("role", None)  # discard legacy field
+    class Meta:
+        model = Employee
+        fields = [
+            "id",
+            "user",
+            "company",
+            "position",
+            "grade",
+            "first_name",
+            "last_name",
+            "nationality",
+            "hire_date",
+            "work_location",
+            "created_at",
+            "updated_at",
+            # legacy compatibility fields
+            "role",          # write-only shim (ignored on save)
+            "role_display",  # read-only, derived from Position/JobTitle
+        ]
+        read_only_fields = ("created_at", "updated_at")
+
+    def get_role_display(self, obj: Employee) -> str:
+        try:
+            return obj.position.job_title.name if obj.position and obj.position.job_title else ""
+        except Exception:
+            return ""
+
+    def create(self, validated_data: dict) -> Employee:
+        # Ignore legacy "role" free-text; real role mapping is via UserRole
+        validated_data.pop("role", None)
         return super().create(validated_data)
 
-    def update(self, instance: Employee, validated_data: Dict[str, Any]) -> Employee:
-        validated_data.pop("role", None)  # discard legacy field
+    def update(self, instance: Employee, validated_data: dict) -> Employee:
+        validated_data.pop("role", None)
         return super().update(instance, validated_data)
 
 
