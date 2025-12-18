@@ -109,6 +109,7 @@ def extract_boq(file, boq):
         return False
 
 
+
 def calculate_file_hash(file):
     """
     Calculate the SHA256 hash of the file content.

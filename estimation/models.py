@@ -12,6 +12,10 @@ def boq_file_upload_to(instance, filename):
     project_name = instance.estimation.subphase.project.name
     return os.path.join(project_name, 'BOQ', filename)
 
+def primavera_linkage_file_upload_to(instance, filename):
+    project_name = instance.estimation.subphase.project.name
+    return os.path.join(project_name, 'BOQ','primavera_data', filename)
+
 
 class EstimationStatus(models.TextChoices):
     DRAFT = "DRAFT", "Draft"
@@ -61,6 +65,7 @@ class BOQ(TimeStampedModel):
     estimation = models.ForeignKey(Estimation, related_name='boqs', on_delete=models.CASCADE)
     file_path = models.FileField(upload_to=boq_file_upload_to, blank=True, null=True)
     file_hash = models.CharField(max_length=64, unique=True, blank=True, null=True)  # SHA256 hash
+    primavera_linkage = models.URLField(null=True, blank=True)
 
     def __str__(self):
         return self.name

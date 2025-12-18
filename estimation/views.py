@@ -35,7 +35,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 from io import BytesIO
-
+from .utils.data_processing import *
 
 # Estimation Views
 class EstimationCreateView(APIView):
@@ -136,6 +136,107 @@ class UploadBOQ(APIView):
 
         if not file:
             return Response({'detail': 'BOQ file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not estimation_id:
+            return Response({'detail': 'Estimation ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Extract the Estimation object
+            estimation = Estimation.objects.get(id=estimation_id)
+        except Estimation.DoesNotExist:
+            return Response({'detail': 'Estimation not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Process the BOQ file
+        try:
+            file_hash = calculate_file_hash(file)
+            # Check for existing BOQ with the same file hash for the given estimation
+            existing_boq = BOQ.objects.filter(estimation=estimation, file_hash=file_hash).first()
+            if existing_boq:
+                return Response({'detail': 'Duplicate BOQ file found, skipping extraction.'}, status=status.HTTP_200_OK)
+
+            # Proceed with BOQ data extraction
+            boq = BOQ.objects.create(
+                name=f"BOQ for {estimation.subphase.name}",
+                estimation=estimation,
+                file_path=file,
+                file_hash=file_hash
+            )
+
+            # Clean the BOQ file before extraction
+            cleaned_df = clean_boq_data_util(boq.file_path.path)
+            # Save cleaned df back to a temporary excel to be read by extract_boq
+            # Or better: modify extract_boq to handle df.
+            # For now, let's save it to a temporary path.
+            temp_cleaned_path = boq.file_path.path + "_cleaned.xlsx"
+            cleaned_df.to_excel(temp_cleaned_path, index=False, header=False)
+
+            resp = extract_boq(temp_cleaned_path, boq)
+
+            # Cleanup temp file
+            if os.path.exists(temp_cleaned_path):
+                os.remove(temp_cleaned_path)
+            if resp:
+                return Response({'detail': 'BOQ data extracted and saved successfully.'},
+                                status=status.HTTP_201_CREATED)
+            else:
+                return Response({'detail': 'DID NOT EXTRACT'}, status=status.HTTP_400_BAD_REQUEST)
+
+        except ValidationError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LinkPrimavera(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        boq_id = request.data.get('boq_id')
+        primavera_file = request.FILES.get('primavera_file')
+
+        if not boq_id or not primavera_file:
+            return Response({'detail': 'boq_id and primavera_file are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        boq = get_object_or_404(BOQ, id=boq_id)
+
+        # 1. Serialize BOQ data
+        serializer = BOQDetailSerializer(boq)
+        boq_data = serializer.data
+
+        # 2. Clean Primavera data
+        # Save uploaded file temporarily to clean it
+        temp_prim_path = os.path.join(settings.MEDIA_ROOT, 'temp_primavera.xlsx')
+        with open(temp_prim_path, 'wb+') as destination:
+            for chunk in primavera_file.chunks():
+                destination.write(chunk)
+
+        try:
+            prim_df = clean_primavera_data_util(temp_prim_path)
+
+            # 3. Link data
+            linked_data = link_boq_to_primavera_util(boq_data, prim_df)
+
+            # 4. Save JSON to media
+            json_filename = f"boq_primavera_linkage_{boq.id}.json"
+            json_relative_path = os.path.join('linkages', json_filename)
+            json_full_path = os.path.join(settings.MEDIA_ROOT, json_relative_path)
+
+            os.makedirs(os.path.dirname(json_full_path), exist_ok=True)
+
+            with open(json_full_path, 'w') as f:
+                json.dump(linked_data, f, indent=4, default=json_serial)
+
+            # 5. Update BOQ model
+            json_url = request.build_absolute_uri(settings.MEDIA_URL + json_relative_path)
+            boq.primavera_linkage = json_url
+            boq.save()
+
+            return Response({
+                'detail': 'Primavera linkage completed successfully.',
+                'linkage_url': json_url
+            }, status=status.HTTP_200_OK)
+
+        finally:
+            if os.path.exists(temp_prim_path):
+                os.remove(temp_prim_path)
 
         if not estimation_id:
             return Response({'detail': 'Estimation ID is required.'}, status=status.HTTP_400_BAD_REQUEST)

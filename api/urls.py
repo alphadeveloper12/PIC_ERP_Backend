@@ -13,6 +13,7 @@ from projects.views import SubPhaseListView, SubPhaseCreateView, ProjectCreateVi
 urlpatterns = [
 
     path('upload/boq/', UploadBOQ.as_view(), name='extract-boq-data'),
+    path('link-primavera/', LinkPrimavera.as_view(), name='link-primavera'),
     path('boq/', BOQListView.as_view(), name='boq-list'),
     path('boq/<int:pk>/', BOQDetailView.as_view(), name='boq-detail'),
     path('boq/<int:pk>/update/', BOQUpdateView.as_view(), name='boq-update'),
