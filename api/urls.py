@@ -34,6 +34,7 @@ urlpatterns = [
     path('bill-items/<int:pk>/soft-delete/', BOQItemSoftDeleteView.as_view()),
     path('bill-items/<int:pk>/restore/', BOQItemRestoreView.as_view()),
     path('bill-items/<int:pk>/hard-delete/', BOQItemHardDeleteView.as_view()),
+    path('boq-item/<int:pk>/upsert-estimation/', BOQItemUpsertEstimationView.as_view()),
     path('reorder/', ReorderView.as_view()),
     path('export/excel/<int:boq_id>', ExportExcelView.as_view()),
     path('export/pdf/<int:boq_id>', ExportPDFView.as_view()),

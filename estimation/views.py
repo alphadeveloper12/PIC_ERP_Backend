@@ -44,6 +44,7 @@ class EstimationCreateView(APIView):
 
     def post(self, request, **kwargs):
         try:
+            print(request.data)
             serializer = EstimationSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
@@ -109,6 +110,7 @@ class EstimationListView(APIView):
 
     def get(self, request, **kwargs):
         try:
+            print(request.query_params)
             project_id = request.query_params.get('project_id')
             estimations = Estimation.objects.filter(subphase__project_id=project_id)
             serializer = EstimationSerializer(estimations, many=True)
@@ -130,6 +132,7 @@ class UploadBOQ(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
+        print(request.data)
         # Extract the file and estimation_id from the request
         file = request.FILES.get('boq_file')
         estimation_id = request.data.get('estimation_id')
@@ -189,8 +192,9 @@ class LinkPrimavera(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
+        print(request.data)
         boq_id = request.data.get('boq_id')
-        primavera_file = request.FILES.get('primavera_file')
+        primavera_file = request.FILES.get('primavera_file') or request.FILES.get('file')
 
         if not boq_id or not primavera_file:
             return Response({'detail': 'boq_id and primavera_file are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -231,7 +235,8 @@ class LinkPrimavera(APIView):
 
             return Response({
                 'detail': 'Primavera linkage completed successfully.',
-                'linkage_url': json_url
+                'linkage_url': json_url,
+                'data': json.loads(json.dumps(linked_data, default=json_serial))
             }, status=status.HTTP_200_OK)
 
         finally:
@@ -281,7 +286,14 @@ class BOQListView(APIView):
     def get(self, request, **kwargs):
         try:
             project_id = request.query_params.get('project_id')
-            boqs = BOQ.objects.filter(estimation__subphase__project_id=project_id)
+            estimation_id = request.query_params.get('estimation_id')
+
+            if estimation_id:
+                boqs = BOQ.objects.filter(estimation_id=estimation_id)
+            elif project_id:
+                boqs = BOQ.objects.filter(estimation__subphase__project_id=project_id)
+            else:
+                boqs = BOQ.objects.none()
             data = BOQSerializer(boqs, many=True).data
 
             return JsonResponse({
@@ -1062,6 +1074,209 @@ class SubcontractUpdateView(generics.UpdateAPIView):
     serializer_class = SubcontractSerializer
     queryset = Subcontract.objects.all()
     lookup_field = "pk"
+
+class BOQItemUpsertEstimationView(APIView):
+    def post(self, request, pk, **kwargs):
+        try:
+            boq_item = BOQItem.objects.get(pk=pk)
+            data = request.data
+
+            with transaction.atomic():
+                # 1. Update BOQItem fields
+                boq_item.description = data.get('description', boq_item.description)
+                boq_item.unit = data.get('unit', boq_item.unit)
+                boq_item.quantity = data.get('quantity', boq_item.quantity)
+                boq_item.rate = data.get('rate', boq_item.rate)
+                boq_item.amount = data.get('amount', boq_item.amount)
+                
+                boq_item.dry_cost = data.get('dry_cost', boq_item.dry_cost)
+                boq_item.unit_rate = data.get('unit_rate', boq_item.unit_rate)
+                boq_item.factor = data.get('factor', boq_item.factor)
+                boq_item.prelimin = data.get('prelimin', boq_item.prelimin)
+                boq_item.boq_amount = data.get('total_amount', boq_item.boq_amount) # Mapping total_amount to boq_amount
+                
+                boq_item.save()
+
+                # 2. Handle Materials
+                incoming_materials = data.get('materials', [])
+                incoming_ids = []
+                
+                for mat_data in incoming_materials:
+                    mat_id = mat_data.get('id')
+                    # Check if ID is a valid integer (existing DB ID)
+                    if isinstance(mat_id, int) or (isinstance(mat_id, str) and mat_id.isdigit()):
+                        # Update existing
+                        try:
+                            material = Material.objects.get(pk=int(mat_id), boq_item=boq_item)
+                            material.name = mat_data.get('name', material.name)
+                            material.rate = mat_data.get('rate', material.rate)
+                            material.wastage = mat_data.get('wastage', material.wastage)
+                            material.u_rate = mat_data.get('unit_rate', material.u_rate) # Mapping unit_rate to u_rate
+                            material.amount = mat_data.get('amount', material.amount)
+                            material.save()
+                            incoming_ids.append(material.id)
+                        except Material.DoesNotExist:
+                            # If ID provided but not found, treat as new? Or ignore? 
+                            # Safer to create new if not found, or error. 
+                            # Let's create new to be safe against bad IDs, or just skip.
+                            # Given "upsert", creation is better.
+                            material = Material.objects.create(
+                                boq_item=boq_item,
+                                name=mat_data.get('name'),
+                                rate=mat_data.get('rate'),
+                                wastage=mat_data.get('wastage'),
+                                u_rate=mat_data.get('unit_rate'),
+                                amount=mat_data.get('amount')
+                            )
+                            incoming_ids.append(material.id)
+                    else:
+                        # Create new (ID is string/temp or None)
+                        material = Material.objects.create(
+                            boq_item=boq_item,
+                            name=mat_data.get('name'),
+                            rate=mat_data.get('rate'),
+                            wastage=mat_data.get('wastage'),
+                            u_rate=mat_data.get('unit_rate'),
+                            amount=mat_data.get('amount')
+                        )
+                        incoming_ids.append(material.id)
+                
+                # Delete materials not in incoming list
+                Material.objects.filter(boq_item=boq_item).exclude(id__in=incoming_ids).delete()
+
+                # 3. Handle Plant (Single entry per item logic)
+                plant_rate = data.get('plant_rate')
+                plant_amount = data.get('plant_amount')
+                if plant_rate is not None or plant_amount is not None:
+                    plant = boq_item.plants.first()
+                    if plant:
+                        plant.rate = plant_rate if plant_rate is not None else plant.rate
+                        plant.amount = plant_amount if plant_amount is not None else plant.amount
+                        plant.save()
+                    else:
+                        Plant.objects.create(
+                            boq_item=boq_item,
+                            name="Plant", # Default name
+                            rate=plant_rate,
+                            amount=plant_amount
+                        )
+
+                # 4. Handle Labour (Single entry)
+                labour_rate = data.get('labour_unit_rate')
+                labour_hours = data.get('labour_hours')
+                labour_amount = data.get('labour_amount')
+                if labour_rate is not None or labour_hours is not None or labour_amount is not None:
+                    labour = boq_item.labours.first()
+                    if labour:
+                        labour.hours = labour_hours if labour_hours is not None else labour.hours
+                        labour.amount = labour_amount if labour_amount is not None else labour.amount
+                        # Note: Labour model has 'role', no 'rate' field explicitly in model shown earlier?
+                        # Let's check model. Labour has: role, hours, amount. No rate?
+                        # Wait, `save` method uses `boq_item.rate`? No, `boq_item.rate` is item rate.
+                        # Payload has `labour_unit_rate`. 
+                        # If model doesn't support rate, we might lose it.
+                        # Let's check Labour model again.
+                        # Labour(models.Model): role, hours, amount.
+                        # So `labour_unit_rate` might not be stored directly on Labour model unless we add it or use `role` to store it?
+                        # Or maybe it's calculated? amount = hours * rate. 
+                        # If we have amount and hours, rate is implied.
+                        labour.save()
+                    else:
+                        Labour.objects.create(
+                            boq_item=boq_item,
+                            role="Labour", # Default role
+                            hours=labour_hours,
+                            amount=labour_amount
+                        )
+
+                # 5. Handle Subcontract (Single entry)
+                sub_rate = data.get('subcontract_rate')
+                sub_amount = data.get('subcontract_amount')
+                if sub_rate is not None or sub_amount is not None:
+                    sub = boq_item.subcontracts.first()
+                    if sub:
+                        sub.rate = sub_rate if sub_rate is not None else sub.rate
+                        sub.amount = sub_amount if sub_amount is not None else sub.amount
+                        sub.save()
+                    else:
+                        Subcontract.objects.create(
+                            boq_item=boq_item,
+                            name="Subcontract", # Default name
+                            rate=sub_rate,
+                            amount=sub_amount
+                        )
+
+            # Construct Response Data
+            # Re-fetch to get updated values
+            boq_item.refresh_from_db()
+            
+            resp_data = {
+                "item_id": boq_item.id,
+                "description": boq_item.description,
+                "unit": boq_item.unit,
+                "quantity": float(boq_item.quantity),
+                "rate": float(boq_item.rate),
+                "amount": float(boq_item.amount),
+                "section_name": boq_item.subsection.section.name if boq_item.subsection and boq_item.subsection.section else "",
+                "section_factor": boq_item.subsection.section.factor if boq_item.subsection and boq_item.subsection.section else 0,
+                "materials": [
+                    {
+                        "id": m.id,
+                        "name": m.name,
+                        "rate": m.rate,
+                        "wastage": m.wastage,
+                        "unit_rate": m.u_rate,
+                        "amount": m.amount
+                    } for m in boq_item.materials.all()
+                ],
+                "dry_cost": boq_item.dry_cost,
+                "unit_rate": boq_item.unit_rate,
+                "factor": boq_item.factor,
+                "prelimin": boq_item.prelimin,
+                "total_amount": boq_item.boq_amount,
+                "uses_section_factor": True, # Hardcoded or logic needed?
+                "saved_at_iso": timezone.now().isoformat()
+            }
+
+            # Add Plant/Labour/Subcontract fields
+            plant = boq_item.plants.first()
+            if plant:
+                resp_data["plant_rate"] = plant.rate
+                resp_data["plant_amount"] = plant.amount
+            else:
+                resp_data["plant_rate"] = 0
+                resp_data["plant_amount"] = 0
+
+            labour = boq_item.labours.first()
+            if labour:
+                # resp_data["labour_unit_rate"] = ??? # Not in model
+                resp_data["labour_hours"] = labour.hours
+                resp_data["labour_amount"] = labour.amount
+                # Infer rate?
+                if labour.hours and labour.amount:
+                    resp_data["labour_unit_rate"] = labour.amount / labour.hours
+                else:
+                    resp_data["labour_unit_rate"] = 0
+            else:
+                resp_data["labour_unit_rate"] = 0
+                resp_data["labour_hours"] = 0
+                resp_data["labour_amount"] = 0
+
+            sub = boq_item.subcontracts.first()
+            if sub:
+                resp_data["subcontract_rate"] = sub.rate
+                resp_data["subcontract_amount"] = sub.amount
+            else:
+                resp_data["subcontract_rate"] = 0
+                resp_data["subcontract_amount"] = 0
+
+            return Response(resp_data, status=status.HTTP_200_OK)
+
+        except BOQItem.DoesNotExist:
+            return Response({'detail': 'BOQ Item not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error in upsert: {e}")
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SubcontractByBOQItemView(APIView):

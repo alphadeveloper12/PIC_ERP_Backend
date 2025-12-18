@@ -27,6 +27,8 @@ class EstimationStatus(models.TextChoices):
 
 class Estimation(models.Model):
     subphase = models.ForeignKey(SubPhase, related_name='estimations', on_delete=models.CASCADE)
+    name = models.CharField(max_length=255, default="New Estimation")
+    description = models.TextField(null=True, blank=True)
     total_estimated_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     notes = models.TextField(null=True, blank=True)
     status = models.CharField(
