@@ -89,7 +89,7 @@ class BOQItemSerializer(serializers.ModelSerializer):
             'labour_hours', 'labour_amount', 'labour_unit_rate',
             'subcontract_rate', 'subcontract_amount',
             'dry_cost', 'unit_rate', 'factor', 'prelimin', 'total_amount',
-            'section_name', 'section_factor', 'uses_section_factor', 'saved_at_iso'
+            'section_name', 'section_factor', 'uses_section_factor', 'saved_at_iso', 'ERC_code'
         ]
 
     def get_plant_rate(self, obj):

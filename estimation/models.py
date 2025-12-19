@@ -115,6 +115,7 @@ class BOQItem(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     rate = models.DecimalField(max_digits=10, decimal_places=2)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    ERC_code = models.CharField(max_length=100, null=True, blank=True)
 
     # Calculated summary fields
     dry_cost = models.FloatField(blank=True, null=True)

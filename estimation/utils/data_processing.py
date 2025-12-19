@@ -6,6 +6,91 @@ import os
 from sentence_transformers import SentenceTransformer, util
 import torch
 from django.conf import settings
+from .predict import ActivityClassifier
+from collections import defaultdict
+
+class ERCCodeGenerator:
+    """Generate ERC codes from classification labels."""
+
+    def __init__(self):
+        # Hardcoded mappings based on model labels
+        self.level1_map = {
+            'Closeout': 'CL',
+            'Construction': 'CN',
+            'General': 'GN',
+            'Method Statements': 'MS',
+            'Shop Drawing': 'SD'
+        }
+        self.level2_map = {
+            'Architectural': 'AR',
+            'Authority Drawings': 'AD',
+            'Building Permits': 'BP',
+            'Controlled Milestones': 'CM',
+            'Documentation': 'DC',
+            'Key Milestone': 'KM',
+            'MEP related items': 'MP',
+            'Mobilization': 'MB',
+            'No Objection Certificates (Authority approvals)': 'NO',
+            'Structure': 'ST',
+            'Submission': 'SB'
+        }
+        self.level3_map = {
+            'Consultant Approval': 'CA',
+            'Submission': 'SB',
+            'Work Execution': 'WE'
+        }
+        self.family_map = {
+            'Electrical Power & Lighting': 'EL',
+            'External Finishes': 'EF',
+            'External Works': 'EW',
+            'Gas / LPG System': 'GS',
+            'HVAC Systems Family': 'HV',
+            'Internal Finishes': 'IF',
+            'MEP General': 'MG',
+            'Plumbing & Drainage Family': 'PD',
+            'Structural Works': 'SW'
+        }
+        self.main_map = {
+            'Balcony & Balustrade Works': 'BB',
+            'Boundary Walls & Fencing': 'BW',
+            'Builders Work for MEP': 'BM',
+            'Doors & Windows': 'DW',
+            'Drainage Works': 'DR',
+            'Electrical Power Works': 'EP',
+            'Elevation / Façade Works': 'EV',
+            'Floor & Wall Tiling Works': 'FT',
+            'Gypsum / Ceiling Works': 'GC',
+            'Kitchen Units & Counters': 'KC',
+            'LPG / Gas Works': 'LG',
+            'Lighting Works': 'LW',
+            'Not Applicable': 'NA',
+            'Painting Works': 'PW',
+            'Plaster Works': 'PL',
+            'Sanitary Fixtures & Accessories': 'SF',
+            'Screed Works': 'SC',
+            'Tiling Works': 'TL',
+            'Wall Tiling Works': 'WT',
+            'Wardrobes & Closets': 'WC',
+            'Waterproofing Works': 'WP'
+        }
+
+    def generate_code(self, level1, level2, level3=None, family=None, main=None, seq="000"):
+        parts = []
+        parts.append(self.level1_map.get(level1, 'UN'))
+        parts.append(self.level2_map.get(level2, 'UN'))
+        if level3: parts.append(self.level3_map.get(level3, 'UN'))
+        if family: parts.append(self.family_map.get(family, 'UN'))
+        if main: parts.append(self.main_map.get(main, 'UN'))
+        parts.append(seq)
+        return "-".join(parts)
+
+    def get_prefix(self, erc_code):
+        """Extract the non-numeric part of the ERC code."""
+        if not erc_code:
+            return ""
+        parts = erc_code.split('-')
+        # Assuming the last part is the numeric sequence
+        return "-".join(parts[:-1])
 
 
 def clean_boq_data_util(input_file_path):
@@ -79,16 +164,18 @@ def clean_primavera_data_util(input_file_path):
 
 def link_boq_to_primavera_util(serialized_boq_data, primavera_df):
     """
-    Links serialized BOQ data to a Primavera DataFrame and returns the hierarchical structure.
+    Links serialized BOQ data to a Primavera DataFrame using ERC codes as a bridge.
     """
-    # Flatten BOQ items for matching
+    # Initialize classifier and generator
+    classifier = ActivityClassifier()
+    erc_gen = ERCCodeGenerator()
+
+    # Flatten BOQ items
     flat_items = []
     for section in serialized_boq_data.get('sections', []):
         for sub in section.get('subsections', []):
             for item in sub.get('items', []):
-                # Construct context for matching
-                context = f"{section['name']} | {sub['name']} | {item['description']}"
-                item['full_context'] = context
+                item['erc_prefix'] = erc_gen.get_prefix(item.get('ERC_code'))
                 item['primavera_activities'] = []
                 flat_items.append(item)
 
@@ -105,40 +192,50 @@ def link_boq_to_primavera_util(serialized_boq_data, primavera_df):
     if not activity_col:
         activity_col = primavera_df.columns[1]
 
+    # Predict ERC codes for Primavera activities
     prim_activities = [str(r[activity_col]) for r in prim_data]
+    predictions = classifier.predict_batch(prim_activities)
 
-    # SBERT Matching
-    model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
-    boq_contexts = [item['full_context'] for item in flat_items]
+    # Group Primavera activities by ERC prefix for O(1) lookup
+    prim_by_prefix = defaultdict(list)
+    for i, record in enumerate(prim_data):
+        pred = predictions[i]
+        erc_code = erc_gen.generate_code(
+            level1=pred.get('Level1_Desc'),
+            level2=pred.get('Level2_Desc'),
+            level3=pred.get('Level3_Desc'),
+            family=pred.get('Family_Desc'),
+            main=pred.get('Main_Desc'),
+            seq=f"{i + 1:03d}"
+        )
+        record['ERC_code'] = erc_code
+        prefix = erc_gen.get_prefix(erc_code)
+        record['erc_prefix'] = prefix
 
-    boq_embeddings = model.encode(boq_contexts, convert_to_tensor=True)
-    prim_embeddings = model.encode(prim_activities, convert_to_tensor=True)
+        activity_match = {
+            "desc": record.get(activity_col, ""),
+            "ERC_code": erc_code,
+            "Original Duration": record.get("Original Duration", 0),
+            "Early Start": record.get("Early Start", 0),
+            "Early Finish": record.get("Early Finish", 0),
+            "Late Start": record.get("Late Start", 0),
+            "Late Finish": record.get("Late Finish", 0),
+            "Total Float": record.get("Total Float", 0),
+            "Budgeted Total Cost": record.get("Budgeted Total Cost", 0),
+            "Score": 1.0  # Exact ERC prefix match
+        }
+        prim_by_prefix[prefix].append(activity_match)
 
-    cosine_scores = util.cos_sim(boq_embeddings, prim_embeddings)
+    # Link by ERC prefix using dictionary lookup
+    for item in flat_items:
+        boq_prefix = item.get('erc_prefix')
+        if boq_prefix in prim_by_prefix:
+            item["primavera_activities"].extend(prim_by_prefix[boq_prefix])
 
-    for i, item in enumerate(flat_items):
-        scores = cosine_scores[i]
-        top_results = torch.topk(scores, k=3)
-
-        for score, idx in zip(top_results.values, top_results.indices):
-            idx = idx.item()
-            score = score.item()
-            orig_record = prim_data[idx]
-
-            activity_match = {
-                "desc": orig_record.get(activity_col, ""),
-                "Original Duration": orig_record.get("Original Duration", 0),
-                "Early Start": orig_record.get("Early Start", 0),
-                "Early Finish": orig_record.get("Early Finish", 0),
-                "Late Start": orig_record.get("Late Start", 0),
-                "Late Finish": orig_record.get("Late Finish", 0),
-                "Total Float": orig_record.get("Total Float", 0),
-                "Budgeted Total Cost": orig_record.get("Budgeted Total Cost", 0),
-                "Score": round(score, 4)
-            }
-            item["primavera_activities"].append(activity_match)
-
-        del item['full_context']
+    # Cleanup temporary fields
+    for item in flat_items:
+        if 'erc_prefix' in item:
+            del item['erc_prefix']
 
     return serialized_boq_data
 

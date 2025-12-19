@@ -2,10 +2,16 @@ import pandas as pd
 import numpy as np
 from .models import Section, Subsection, BOQItem
 import hashlib
+from .utils.data_processing import ERCCodeGenerator
+from .utils.predict import ActivityClassifier
 
 
 def extract_boq(file, boq):
     try:
+        # Initialize classifier and generator
+        classifier = ActivityClassifier()
+        erc_gen = ERCCodeGenerator()
+
         # Extract data from the file
         boq_data = pd.read_excel(file)
         boq_data = boq_data.dropna(subset=['Description'])  # Remove rows with missing description
@@ -37,6 +43,8 @@ def extract_boq(file, boq):
                     current_section = Section(name=description, boq=boq)
                     sections.append(current_section)  # Append the section to the list
                     section_lookup[description] = current_section
+                else:
+                    current_section = section_lookup[description]
 
             elif len(description.split(' - ')) == 2:  # Matches the pattern "B4 - SITE PREPARATION"
                 # Ensure that current_section is set before creating a subsection
@@ -47,6 +55,8 @@ def extract_boq(file, boq):
                         current_subsection = Subsection(name=description, section=current_section)
                         subsections.append(current_subsection)  # Append the subsection to the list
                         subsection_lookup[description] = current_subsection
+                    else:
+                        current_subsection = subsection_lookup[description]
 
             else:
                 if current_subsection:  # Ensure that the current subsection exists
@@ -84,6 +94,17 @@ def extract_boq(file, boq):
                     if not isinstance(amount, (int, float)):
                         amount = 0
 
+                    # Predict ERC code
+                    prediction = classifier.predict(description)[0]
+                    erc_code = erc_gen.generate_code(
+                        level1=prediction.get('Level1_Desc'),
+                        level2=prediction.get('Level2_Desc'),
+                        level3=prediction.get('Level3_Desc'),
+                        family=prediction.get('Family_Desc'),
+                        main=prediction.get('Main_Desc'),
+                        seq=f"{len(boq_items) + 1:03d}"
+                    )
+
                     # Create the BOQItem instance and associate it with the subsection
                     boq_items.append(BOQItem(
                         description=description,
@@ -91,7 +112,8 @@ def extract_boq(file, boq):
                         quantity=quantity,
                         rate=rate,
                         amount=amount,
-                        subsection=current_subsection
+                        subsection=current_subsection,
+                        ERC_code=erc_code
                     ))
 
         # Save sections, subsections, and BOQItems to the database using bulk_create to reduce DB queries
@@ -107,7 +129,6 @@ def extract_boq(file, boq):
     except Exception as e:
         print(f'Exception inside: BOQ extraction Function {str(e)}')
         return False
-
 
 
 def calculate_file_hash(file):

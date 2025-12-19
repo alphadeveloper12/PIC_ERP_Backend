@@ -216,6 +216,7 @@ class LinkPrimavera(APIView):
             prim_df = clean_primavera_data_util(temp_prim_path)
 
             # 3. Link data
+            # The utility now handles ERC prediction for Primavera activities internally
             linked_data = link_boq_to_primavera_util(boq_data, prim_df)
 
             # 4. Save JSON to media
@@ -242,41 +243,6 @@ class LinkPrimavera(APIView):
         finally:
             if os.path.exists(temp_prim_path):
                 os.remove(temp_prim_path)
-
-        if not estimation_id:
-            return Response({'detail': 'Estimation ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            # Extract the Estimation object
-            estimation = Estimation.objects.get(id=estimation_id)
-        except Estimation.DoesNotExist:
-            return Response({'detail': 'Estimation not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Process the BOQ file
-        try:
-            file_hash = calculate_file_hash(file)
-            # Check for existing BOQ with the same file hash for the given estimation
-            existing_boq = BOQ.objects.filter(estimation=estimation, file_hash=file_hash).first()
-            if existing_boq:
-                return Response({'detail': 'Duplicate BOQ file found, skipping extraction.'}, status=status.HTTP_200_OK)
-
-            # Proceed with BOQ data extraction
-            boq = BOQ.objects.create(
-                name=f"BOQ for {estimation.subphase.name}",
-                estimation=estimation,
-                file_path=file,
-                file_hash=file_hash
-            )
-            print(boq)
-            print(file)
-            resp = extract_boq(file, boq)
-            if resp:
-                return Response({'detail': 'BOQ data extracted and saved successfully.'}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({'detail': 'DID NOT EXTRACT'}, status=status.HTTP_400_BAD_REQUEST)
-
-        except ValidationError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BOQListView(APIView):
