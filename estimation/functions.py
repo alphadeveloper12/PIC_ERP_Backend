@@ -4,20 +4,34 @@ from .models import Section, Subsection, BOQItem
 import hashlib
 from .utils.data_processing import ERCCodeGenerator
 from .utils.predict import ActivityClassifier
+import re
 
 
-def extract_boq(file, boq):
+def extract_boq(file_or_df, boq):
+    # Initialize classifier and generator
+    classifier = ActivityClassifier.get_instance()
+    erc_gen = ERCCodeGenerator()
     try:
-        # Initialize classifier and generator
-        classifier = ActivityClassifier()
-        erc_gen = ERCCodeGenerator()
+        # Extract data from the file or use provided DataFrame
+        if isinstance(file_or_df, pd.DataFrame):
+            boq_data = file_or_df
+        else:
+            boq_data = pd.read_excel(file_or_df)
 
-        # Extract data from the file
-        boq_data = pd.read_excel(file)
-        boq_data = boq_data.dropna(subset=['Description'])  # Remove rows with missing description
+        # If columns are numeric (no headers), try to find the header row or assign defaults
+        if all(isinstance(c, int) for c in boq_data.columns):
+            # Look for a row that contains 'Description'
+            for idx, row in boq_data.iterrows():
+                if any('Description' in str(val) for val in row):
+                    boq_data.columns = boq_data.iloc[idx]
+                    boq_data = boq_data.iloc[idx + 1:].reset_index(drop=True)
+                    break
+            else:
+                # Fallback: assume standard order if no header found
+                cols = {0: 'Description', 1: 'Unit', 2: 'Quantity', 3: 'Rate', 4: 'Amount'}
+                boq_data = boq_data.rename(columns=cols)
 
-        current_section = None
-        current_subsection = None
+        boq_data = boq_data.dropna(subset=['Description'])
 
         # Create lists to hold objects for bulk creation
         sections = []
@@ -28,95 +42,86 @@ def extract_boq(file, boq):
         section_lookup = {}
         subsection_lookup = {}
 
-        # Iterate through the rows and extract data
-        for index, row in boq_data.iterrows():
-            description = row.get('Description', '')
-            # Ensure description is a string and strip any leading/trailing spaces
-            description = str(description) if description is not None else ''
-            description = description.strip()
+        current_section = None
+        current_subsection = None
 
-            # Check if it's a section and create it
+        # First pass: Identify sections, subsections, and collect item descriptions
+        item_data_list = []
+        for index, row in boq_data.iterrows():
+            description = str(row.get('Description', '')).strip()
+            if not description: continue
+
             if 'SECTION' in description:
-                # Check if the section already exists in the in-memory lookup
                 if description not in section_lookup:
-                    # If not, create and add it to the list and lookup
                     current_section = Section(name=description, boq=boq)
-                    sections.append(current_section)  # Append the section to the list
+                    sections.append(current_section)
                     section_lookup[description] = current_section
                 else:
                     current_section = section_lookup[description]
-
-            elif len(description.split(' - ')) == 2:  # Matches the pattern "B4 - SITE PREPARATION"
-                # Ensure that current_section is set before creating a subsection
+            elif len(description.split(' - ')) == 2:
                 if current_section:
-                    # Check if the subsection already exists in the in-memory lookup
                     if description not in subsection_lookup:
-                        # If not, create and add it to the list and lookup
                         current_subsection = Subsection(name=description, section=current_section)
-                        subsections.append(current_subsection)  # Append the subsection to the list
+                        subsections.append(current_subsection)
                         subsection_lookup[description] = current_subsection
                     else:
                         current_subsection = subsection_lookup[description]
-
             else:
-                if current_subsection:  # Ensure that the current subsection exists
-                    # Safely handle non-string types for 'Unit'
-                    unit = row.get('Unit', '')
-                    unit = str(unit) if isinstance(unit, (str, float)) else ''  # Convert to string if needed
-                    unit = unit.strip() if isinstance(unit, str) else ''
+                if current_subsection:
+                    unit = str(row.get('Unit', '')).strip()
 
-                    # Ensure that the numeric fields (Quantity, Rate, Amount) are valid numbers
-                    quantity = row.get('Quantity', np.nan)
-                    rate = row.get('Rate', np.nan)
-                    amount = row.get('Amount', np.nan)
+                    def clean_numeric(val):
+                        if pd.isna(val):
+                            return 0
+                        if isinstance(val, (int, float)):
+                            return val
+                        # Remove non-numeric characters except decimal point
+                        cleaned = re.sub(r'[^\d.]', '', str(val))
+                        try:
+                            return float(cleaned) if cleaned else 0
+                        except ValueError:
+                            return 0
 
-                    # Convert NaN or "nan" to 0 for numeric fields
-                    if isinstance(quantity, str) and quantity.lower() == "nan":
-                        quantity = 0
-                    elif pd.isna(quantity):
-                        quantity = 0
+                    quantity = clean_numeric(row.get('Quantity'))
+                    rate = clean_numeric(row.get('Rate'))
+                    amount = clean_numeric(row.get('Amount'))
 
-                    if isinstance(rate, str) and rate.lower() == "nan":
-                        rate = 0
-                    elif pd.isna(rate):
-                        rate = 0
+                    item_data_list.append({
+                        'description': description,
+                        'unit': unit,
+                        'quantity': quantity,
+                        'rate': rate,
+                        'amount': amount,
+                        'subsection': current_subsection
+                    })
 
-                    if isinstance(amount, str) and amount.lower() == "nan":
-                        amount = 0
-                    elif pd.isna(amount):
-                        amount = 0
+        # Batch predict ERC codes
+        if item_data_list:
+            descriptions = [item['description'] for item in item_data_list]
+            predictions = classifier.predict_batch(descriptions)
 
-                    # If any of these values are not numbers, we should set them to 0
-                    if not isinstance(quantity, (int, float)):
-                        quantity = 0
-                    if not isinstance(rate, (int, float)):
-                        rate = 0
-                    if not isinstance(amount, (int, float)):
-                        amount = 0
+            for i, item_data in enumerate(item_data_list):
+                prediction = predictions[i]
+                erc_code = erc_gen.generate_code(
+                    level1=prediction.get('Level1_Desc'),
+                    level2=prediction.get('Level2_Desc'),
+                    level3=prediction.get('Level3_Desc'),
+                    family=prediction.get('Family_Desc'),
+                    main=prediction.get('Main_Desc'),
+                    seq=f"{i + 1:03d}"
+                )
 
-                    # Predict ERC code
-                    prediction = classifier.predict(description)[0]
-                    erc_code = erc_gen.generate_code(
-                        level1=prediction.get('Level1_Desc'),
-                        level2=prediction.get('Level2_Desc'),
-                        level3=prediction.get('Level3_Desc'),
-                        family=prediction.get('Family_Desc'),
-                        main=prediction.get('Main_Desc'),
-                        seq=f"{len(boq_items) + 1:03d}"
-                    )
+                boq_items.append(BOQItem(
+                    description=item_data['description'],
+                    unit=item_data['unit'],
+                    quantity=item_data['quantity'],
+                    rate=item_data['rate'],
+                    amount=item_data['amount'],
+                    subsection=item_data['subsection'],
+                    ERC_code=erc_code
+                ))
 
-                    # Create the BOQItem instance and associate it with the subsection
-                    boq_items.append(BOQItem(
-                        description=description,
-                        unit=unit,
-                        quantity=quantity,
-                        rate=rate,
-                        amount=amount,
-                        subsection=current_subsection,
-                        ERC_code=erc_code
-                    ))
-
-        # Save sections, subsections, and BOQItems to the database using bulk_create to reduce DB queries
+        # Save sections, subsections, and BOQItems to the database
         if sections:
             Section.objects.bulk_create(sections)
         if subsections:

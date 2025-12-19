@@ -9,6 +9,7 @@ from django.conf import settings
 from .predict import ActivityClassifier
 from collections import defaultdict
 
+
 class ERCCodeGenerator:
     """Generate ERC codes from classification labels."""
 
@@ -167,7 +168,7 @@ def link_boq_to_primavera_util(serialized_boq_data, primavera_df):
     Links serialized BOQ data to a Primavera DataFrame using ERC codes as a bridge.
     """
     # Initialize classifier and generator
-    classifier = ActivityClassifier()
+    classifier = ActivityClassifier.get_instance()
     erc_gen = ERCCodeGenerator()
 
     # Flatten BOQ items

@@ -15,15 +15,13 @@ import torch.nn as nn
 from transformers import DistilBertTokenizer, DistilBertModel
 import pandas as pd
 import warnings
-
 warnings.filterwarnings('ignore')
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-MODEL_DIR = 'estimation/models/activity_classifier/'
-
+MODEL_DIR = 'estimation/models/activity_classifier'
 
 # ============================================================================
 # MODEL ARCHITECTURE (must match training)
@@ -69,9 +67,17 @@ class MultiOutputClassifier(nn.Module):
 class ActivityClassifier:
     """Wrapper class for easy prediction."""
 
+    _instance = None
+
+    @classmethod
+    def get_instance(cls, model_dir=MODEL_DIR):
+        if cls._instance is None:
+            cls._instance = cls(model_dir)
+        return cls._instance
+
     def __init__(self, model_dir=MODEL_DIR):
         self.model_dir = model_dir
-        self.device = 'cpu'  # Force CPU to avoid CUDA errors in this environment
+        self.device = 'cpu' # Force CPU to avoid CUDA errors in this environment
 
         # Load metadata
         with open(os.path.join(model_dir, 'metadata.json'), 'r') as f:
@@ -112,17 +118,13 @@ class ActivityClassifier:
 
     def predict(self, texts, return_confidence=True):
         """
-        Predict classifications for given texts.
-
-        Args:
-            texts: Single text or list of texts
-            return_confidence: Whether to return confidence scores
-
-        Returns:
-            List of prediction dictionaries
+        Predict classifications for given texts efficiently.
         """
         if isinstance(texts, str):
             texts = [texts]
+
+        if not texts:
+            return []
 
         # Tokenize
         encodings = self.tokenizer(
@@ -139,29 +141,33 @@ class ActivityClassifier:
 
         # Predict
         with torch.no_grad():
-            logits = self.model(input_ids, attention_mask)
+            logits_dict = self.model(input_ids, attention_mask)
 
-        # Process results
+        # Process results using batch operations
+        predictions_by_col = {}
+        confidences_by_col = {}
+
+        for col in self.target_columns:
+            logits = logits_dict[col]
+            probs = torch.softmax(logits, dim=1)
+
+            confidences, indices = torch.max(probs, dim=1)
+
+            # Batch inverse transform
+            le = self.label_encoders[col]
+            pred_labels = le.inverse_transform(indices.cpu().numpy())
+
+            predictions_by_col[col] = pred_labels
+            confidences_by_col[col] = confidences.cpu().numpy()
+
+        # Assemble final results
         results = []
-
         for i in range(len(texts)):
             result = {'Activity_Description': texts[i]}
-
             for col in self.target_columns:
-                col_logits = logits[col][i]
-                probs = torch.softmax(col_logits, dim=0)
-
-                pred_idx = torch.argmax(probs).item()
-                confidence = probs[pred_idx].item()
-
-                le = self.label_encoders[col]
-                pred_label = le.inverse_transform([pred_idx])[0]
-
-                result[col] = pred_label
-
+                result[col] = predictions_by_col[col][i]
                 if return_confidence:
-                    result[f'{col}_confidence'] = round(confidence, 4)
-
+                    result[f'{col}_confidence'] = round(float(confidences_by_col[col][i]), 4)
             results.append(result)
 
         return results
@@ -227,7 +233,7 @@ class ActivityClassifier:
         all_results = []
 
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+            batch = texts[i:i+batch_size]
             results = self.predict(batch, return_confidence=True)
             all_results.extend(results)
 
@@ -252,7 +258,7 @@ class ActivityClassifier:
         # Rename prediction columns to avoid conflicts
         rename_cols = {col: f'Predicted_{col}' for col in self.target_columns}
         rename_cols.update({f'{col}_confidence': f'Predicted_{col}_confidence'
-                            for col in self.target_columns})
+                           for col in self.target_columns})
         pred_df = pred_df.rename(columns=rename_cols)
 
         # Drop the duplicate text column
@@ -269,9 +275,9 @@ class ActivityClassifier:
 # ============================================================================
 
 def main():
-    print("=" * 70)
+    print("="*70)
     print(" ACTIVITY CLASSIFIER - INFERENCE DEMO")
-    print("=" * 70)
+    print("="*70)
 
     # Load classifier
     classifier = ActivityClassifier(MODEL_DIR)
@@ -287,9 +293,9 @@ def main():
         "Prepare & Submit of SD for External Facade Panels"
     ]
 
-    print("\n" + "-" * 70)
+    print("\n" + "-"*70)
     print(" SAMPLE PREDICTIONS")
-    print("-" * 70)
+    print("-"*70)
 
     for activity in test_activities:
         print(f"\n📝 Activity: {activity}")
@@ -302,9 +308,9 @@ def main():
             print(f"   {col}: {primary['label']} ({primary['confidence']:.1%})")
 
     # Batch prediction example
-    print("\n" + "-" * 70)
+    print("\n" + "-"*70)
     print(" BATCH PREDICTION")
-    print("-" * 70)
+    print("-"*70)
 
     batch_results = classifier.predict(test_activities[:3], return_confidence=True)
 

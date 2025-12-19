@@ -132,7 +132,6 @@ class UploadBOQ(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
-        print(request.data)
         # Extract the file and estimation_id from the request
         file = request.FILES.get('boq_file')
         estimation_id = request.data.get('estimation_id')
@@ -167,17 +166,9 @@ class UploadBOQ(APIView):
 
             # Clean the BOQ file before extraction
             cleaned_df = clean_boq_data_util(boq.file_path.path)
-            # Save cleaned df back to a temporary excel to be read by extract_boq
-            # Or better: modify extract_boq to handle df.
-            # For now, let's save it to a temporary path.
-            temp_cleaned_path = boq.file_path.path + "_cleaned.xlsx"
-            cleaned_df.to_excel(temp_cleaned_path, index=False, header=False)
 
-            resp = extract_boq(temp_cleaned_path, boq)
+            resp = extract_boq(cleaned_df, boq)
 
-            # Cleanup temp file
-            if os.path.exists(temp_cleaned_path):
-                os.remove(temp_cleaned_path)
             if resp:
                 return Response({'detail': 'BOQ data extracted and saved successfully.'},
                                 status=status.HTTP_201_CREATED)
@@ -192,9 +183,8 @@ class LinkPrimavera(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
-        print(request.data)
         boq_id = request.data.get('boq_id')
-        primavera_file = request.FILES.get('primavera_file') or request.FILES.get('file')
+        primavera_file = request.FILES.get('primavera_file')
 
         if not boq_id or not primavera_file:
             return Response({'detail': 'boq_id and primavera_file are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -236,8 +226,7 @@ class LinkPrimavera(APIView):
 
             return Response({
                 'detail': 'Primavera linkage completed successfully.',
-                'linkage_url': json_url,
-                'data': json.loads(json.dumps(linked_data, default=json_serial))
+                'linkage_url': json_url
             }, status=status.HTTP_200_OK)
 
         finally:
