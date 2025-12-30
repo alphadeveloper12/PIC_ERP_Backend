@@ -7,6 +7,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
+from django.conf import settings
+import os
 
 from .serializers import *
 import json
@@ -35,7 +37,14 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 from io import BytesIO
-from .utils.data_processing import *
+from io import BytesIO
+from rl_engine.data_processing import clean_boq_data_util, link_boq_to_primavera_util
+from rl_engine.link_boq_primavera_rl import link_boq_primavera
+from .utils.data_processing import json_serial
+
+from rl_engine.apply_feedback import apply_correction
+from rl_engine.apply_bulk_feedback import apply_bulk_feedback
+from rl_engine.apply_primavera_feedback import apply_primavera_feedback
 
 # Estimation Views
 class EstimationCreateView(APIView):
@@ -203,21 +212,23 @@ class LinkPrimavera(APIView):
                 destination.write(chunk)
 
         try:
-            prim_df = clean_primavera_data_util(temp_prim_path)
-
             # 3. Link data
-            # The utility now handles ERC prediction for Primavera activities internally
-            linked_data = link_boq_to_primavera_util(boq_data, prim_df)
-
-            # 4. Save JSON to media
+            # Use the new link_boq_primavera function which handles cleaning, prediction and linking
+            # It expects file paths for boq and primavera
+            
             json_filename = f"boq_primavera_linkage_{boq.id}.json"
             json_relative_path = os.path.join('linkages', json_filename)
             json_full_path = os.path.join(settings.MEDIA_ROOT, json_relative_path)
-
+            
+            # Ensure directory exists
             os.makedirs(os.path.dirname(json_full_path), exist_ok=True)
-
-            with open(json_full_path, 'w') as f:
-                json.dump(linked_data, f, indent=4, default=json_serial)
+            
+            # Pass file paths to the new RL-based linker script
+            link_boq_primavera(
+                boq_path=boq.file_path.path,
+                primavera_path=temp_prim_path,
+                output_path_json=json_full_path
+            )
 
             # 5. Update BOQ model
             json_url = request.build_absolute_uri(settings.MEDIA_URL + json_relative_path)
@@ -232,6 +243,67 @@ class LinkPrimavera(APIView):
         finally:
             if os.path.exists(temp_prim_path):
                 os.remove(temp_prim_path)
+
+
+class ApplyFeedbackView(APIView):
+    def post(self, request, *args, **kwargs):
+        description = request.data.get('boq_item')
+        correct_shorthand = request.data.get('correct_shorthand')
+
+        if not description or not correct_shorthand:
+            return Response({'detail': 'boq_item and correct_shorthand are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            apply_correction(description, correct_shorthand)
+            return Response({'detail': 'Feedback applied successfully.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ApplyBulkFeedbackView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        file = request.FILES.get('feedback_file')
+        if not file:
+            return Response({'detail': 'feedback_file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        temp_path = os.path.join(settings.MEDIA_ROOT, 'temp_feedback.csv')
+        with open(temp_path, 'wb+') as destination:
+            for chunk in file.chunks():
+                destination.write(chunk)
+
+        try:
+            apply_bulk_feedback(temp_path)
+            return Response({'detail': 'Bulk feedback applied successfully.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+
+class ApplyPrimaveraFeedbackView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        file = request.FILES.get('feedback_file')
+        if not file:
+            return Response({'detail': 'feedback_file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        temp_path = os.path.join(settings.MEDIA_ROOT, 'temp_primavera_feedback.csv')
+        with open(temp_path, 'wb+') as destination:
+            for chunk in file.chunks():
+                destination.write(chunk)
+
+        try:
+            apply_primavera_feedback(temp_path)
+            return Response({'detail': 'Primavera feedback applied successfully.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 
 class BOQListView(APIView):

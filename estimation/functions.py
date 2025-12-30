@@ -2,15 +2,15 @@ import pandas as pd
 import numpy as np
 from .models import Section, Subsection, BOQItem
 import hashlib
-from .utils.data_processing import ERCCodeGenerator
-from .utils.predict import ActivityClassifier
+from rl_engine.rl_feedback_loop import RLFeedbackHandler, DEVICE
+from rl_engine.link_boq_primavera_rl import ERC_MAP
 import re
+import torch
 
 
 def extract_boq(file_or_df, boq):
     # Initialize classifier and generator
-    classifier = ActivityClassifier.get_instance()
-    erc_gen = ERCCodeGenerator()
+    handler = RLFeedbackHandler()
     try:
         # Extract data from the file or use provided DataFrame
         if isinstance(file_or_df, pd.DataFrame):
@@ -98,18 +98,27 @@ def extract_boq(file_or_df, boq):
         # Batch predict ERC codes
         if item_data_list:
             descriptions = [item['description'] for item in item_data_list]
-            predictions = classifier.predict_batch(descriptions)
+            
+            # Predict using RL Handler
+            with torch.no_grad():
+                embeddings = handler.sbert_model.encode(descriptions, convert_to_tensor=True).to(DEVICE)
+                handler.agent.eval()
+                outputs = handler.agent(embeddings)
+                probs = torch.softmax(outputs, dim=1)
+                confs, pred_indices = torch.max(probs, dim=1)
+            
+            predictions = [handler.idx_to_label[idx.item()] for idx in pred_indices]
 
             for i, item_data in enumerate(item_data_list):
-                prediction = predictions[i]
-                erc_code = erc_gen.generate_code(
-                    level1=prediction.get('Level1_Desc'),
-                    level2=prediction.get('Level2_Desc'),
-                    level3=prediction.get('Level3_Desc'),
-                    family=prediction.get('Family_Desc'),
-                    main=prediction.get('Main_Desc'),
-                    seq=f"{i + 1:03d}"
-                )
+                prediction_full = predictions[i]
+                
+                # Split label into parts (Category|Subcategory|Detail)
+                parts = prediction_full.split('|')
+                cats = [p for p in parts if p]
+                
+                # Map to EC Codes
+                erc_codes_list = [ERC_MAP.get(c, '') for c in cats if c in ERC_MAP]
+                erc_code = "-".join([c for c in erc_codes_list if c])
 
                 boq_items.append(BOQItem(
                     description=item_data['description'],

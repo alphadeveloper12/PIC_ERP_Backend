@@ -14,6 +14,9 @@ urlpatterns = [
 
     path('upload/boq/', UploadBOQ.as_view(), name='extract-boq-data'),
     path('link-primavera/', LinkPrimavera.as_view(), name='link-primavera'),
+    path('feedback/apply/', ApplyFeedbackView.as_view(), name='apply-feedback'),
+    path('feedback/bulk/', ApplyBulkFeedbackView.as_view(), name='apply-bulk-feedback'),
+    path('feedback/primavera/', ApplyPrimaveraFeedbackView.as_view(), name='apply-primavera-feedback'),
     path('boq/', BOQListView.as_view(), name='boq-list'),
     path('boq/<int:pk>/', BOQDetailView.as_view(), name='boq-detail'),
     path('boq/<int:pk>/update/', BOQUpdateView.as_view(), name='boq-update'),
