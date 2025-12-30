@@ -188,35 +188,109 @@ class UploadBOQ(APIView):
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+from planning.models import PrimaveraSheet, P6Activity
+from planning.serializers import P6ActivitySerializer
+import pandas as pd
+
 class LinkPrimavera(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
         boq_id = request.data.get('boq_id')
-        primavera_file = request.FILES.get('primavera_file')
+        primavera_sheet_id = request.data.get('primavera_sheet_id')
 
-        if not boq_id or not primavera_file:
-            return Response({'detail': 'boq_id and primavera_file are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not boq_id or not primavera_sheet_id:
+            return Response({'detail': 'boq_id and primavera_sheet_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         boq = get_object_or_404(BOQ, id=boq_id)
+        
+        try:
+            sheet = PrimaveraSheet.objects.get(id=primavera_sheet_id)
+        except PrimaveraSheet.DoesNotExist:
+            return Response({'detail': 'Primavera Sheet not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # 1. Serialize BOQ data
-        serializer = BOQDetailSerializer(boq)
-        boq_data = serializer.data
+        # 1. Fetch P6 Activities from DB
+        activities = P6Activity.objects.filter(primavera_sheet=sheet)
+        if not activities.exists():
+             return Response({'detail': 'No activities found for this sheet.'}, status=status.HTTP_400_BAD_REQUEST)
+             
+        # 2. Export P6 Activities to temporary Excel file
+        data = []
+        for act in activities:
+            # Helper to remove timezone
+            def make_naive(dt):
+                return dt.replace(tzinfo=None) if dt else None
 
-        # 2. Clean Primavera data
-        # Save uploaded file temporarily to clean it
-        temp_prim_path = os.path.join(settings.MEDIA_ROOT, 'temp_primavera.xlsx')
-        with open(temp_prim_path, 'wb+') as destination:
-            for chunk in primavera_file.chunks():
-                destination.write(chunk)
+            data.append({
+                'Activity ID': act.activity_id,
+                'Activity Name': act.activity_name,
+                'Original Duration': act.original_duration,
+                'Early Start': make_naive(act.early_start),
+                'Early Finish': make_naive(act.early_finish),
+                'Late Start': make_naive(act.late_start),
+                'Late Finish': make_naive(act.late_finish),
+                'Total Float': act.total_float,
+                'Budgeted Total Cost': act.budgeted_total_cost,
+                'Owner': act.owner
+            })
+            
+        df_prim = pd.DataFrame(data)
+        temp_prim_path = os.path.join(settings.MEDIA_ROOT, f'temp_primavera_{sheet.id}.xlsx')
+        df_prim.to_excel(temp_prim_path, index=False)
+
+        # 3. Export BOQ Items to temporary Excel file with Hierarchy
+        # We need to reconstruct the hierarchy for the RL script which expects:
+        # - Section rows (Description starts with "SECTION")
+        # - Subsection rows (Description like "B4 - ...")
+        # - Item rows (Item No is present)
+        
+        sections = boq.sections.all().order_by('id') # Or sort_order if available
+        
+        boq_data = []
+        for section in sections:
+            # Add Section Header
+            boq_data.append({
+                'Item No': '',
+                'Description': section.name,
+                'Unit': '', 'Quantity': '', 'Rate': '', 'Amount': '', 
+                'BOQ_ID': section.id, 'ROW_TYPE': 'SECTION', 'DB_ID': section.id
+            })
+            
+            subsections = section.subsections.all().order_by('id')
+            for subsection in subsections:
+                # Add Subsection Header
+                boq_data.append({
+                    'Item No': '',
+                    'Description': subsection.name,
+                    'Unit': '', 'Quantity': '', 'Rate': '', 'Amount': '', 
+                    'BOQ_ID': subsection.id, 'ROW_TYPE': 'SUBSECTION', 'DB_ID': subsection.id
+                })
+                
+                items = subsection.items.all().order_by('sort_order')
+                for item in items:
+                    # If item has no quantity, treat it as a TITLE row for the hierarchy
+                    is_title = item.quantity is None or float(item.quantity) == 0
+                    row_type = 'TITLE' if is_title else 'ITEM'
+                    
+                    boq_data.append({
+                        'Item No': '' if is_title else item.sort_order,
+                        'Description': item.description,
+                        'Unit': item.unit,
+                        'Quantity': item.quantity,
+                        'Rate': item.rate,
+                        'Amount': item.amount,
+                        'BOQ_ID': item.id,
+                        'ROW_TYPE': row_type,
+                        'DB_ID': item.id
+                    })
+            
+        df_boq = pd.DataFrame(boq_data)
+        temp_boq_path = os.path.join(settings.MEDIA_ROOT, f'temp_boq_{boq.id}.xlsx')
+        df_boq.to_excel(temp_boq_path, index=False)
 
         try:
-            # 3. Link data
-            # Use the new link_boq_primavera function which handles cleaning, prediction and linking
-            # It expects file paths for boq and primavera
-            
-            json_filename = f"boq_primavera_linkage_{boq.id}.json"
+            # 4. Link data
+            json_filename = f"boq_primavera_linkage_{boq.id}_{sheet.id}.json"
             json_relative_path = os.path.join('linkages', json_filename)
             json_full_path = os.path.join(settings.MEDIA_ROOT, json_relative_path)
             
@@ -224,8 +298,8 @@ class LinkPrimavera(APIView):
             os.makedirs(os.path.dirname(json_full_path), exist_ok=True)
             
             # Pass file paths to the new RL-based linker script
-            link_boq_primavera(
-                boq_path=boq.file_path.path,
+            linked_data = link_boq_primavera(
+                boq_path=temp_boq_path, # Use the temp file with IDs
                 primavera_path=temp_prim_path,
                 output_path_json=json_full_path
             )
@@ -237,12 +311,15 @@ class LinkPrimavera(APIView):
 
             return Response({
                 'detail': 'Primavera linkage completed successfully.',
-                'linkage_url': json_url
+                'linkage_url': json_url,
+                'data': linked_data
             }, status=status.HTTP_200_OK)
 
         finally:
             if os.path.exists(temp_prim_path):
                 os.remove(temp_prim_path)
+            if os.path.exists(temp_boq_path):
+                os.remove(temp_boq_path)
 
 
 class ApplyFeedbackView(APIView):

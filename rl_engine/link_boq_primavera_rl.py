@@ -145,20 +145,22 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
     }
     
     current_section = None
-    current_subsection_name = ""
+    current_subsection = None
     current_title = ""
     
-    def get_section(name):
+    def get_section(name, db_id=None):
         for s in json_root['sections']:
             if s['name'] == name: return s
-        new_s = {"id": len(json_root['sections']) + 100, "name": name, "subsections": []}
+        new_id = int(db_id) if db_id and pd.notna(db_id) else len(json_root['sections']) + 100
+        new_s = {"id": new_id, "name": name, "subsections": []}
         json_root['sections'].append(new_s)
         return new_s
 
-    def get_subsection(section, name, title=""):
+    def get_subsection(section, name, title="", db_id=None):
         for s in section['subsections']:
             if s['name'] == name and s.get('title') == title: return s
-        new_s = {"id": len(section['subsections']) + 1000, "name": name, "title": title, "items": []}
+        new_id = int(db_id) if db_id and pd.notna(db_id) else len(section['subsections']) + 1000
+        new_s = {"id": new_id, "name": name, "title": title, "items": []}
         section['subsections'].append(new_s)
         return new_s
 
@@ -168,17 +170,38 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
     for idx, row in tqdm(boq_df.iterrows(), total=len(boq_df), desc="Linking"):
         item_no = str(row[boq_item_no_col]).strip() if pd.notna(row[boq_item_no_col]) else ""
         desc = str(row[boq_desc_col]).strip() if pd.notna(row[boq_desc_col]) else ""
+        row_type = str(row.get('ROW_TYPE', '')).strip().upper()
+        db_id = row.get('DB_ID')
         
+        # Explicit Row Type Handling
+        if row_type == 'SECTION':
+            current_section = get_section(desc, db_id)
+            current_subsection = None
+            current_title = ""
+            continue
+        elif row_type == 'SUBSECTION':
+            if current_section is None: current_section = get_section("General Section")
+            current_subsection = get_subsection(current_section, desc, current_title, db_id)
+            current_title = ""
+            continue
+        elif row_type == 'TITLE':
+            current_title = desc
+            if current_subsection:
+                current_subsection['title'] = desc
+            continue
+        
+        # Fallback to legacy detection if ROW_TYPE is missing
         is_item = item_no != "" and item_no.lower() != 'nan'
         
-        if not is_item:
+        if not is_item and row_type == '':
             # Update hierarchy
             if desc.upper().startswith("SECTION"):
-                current_section = get_section(desc)
-                current_subsection_name = ""
+                current_section = get_section(desc, db_id)
+                current_subsection = None
                 current_title = ""
             elif any(char.isdigit() for char in desc.split('-')[0]) and '-' in desc:
-                current_subsection_name = desc
+                if current_section is None: current_section = get_section("General Section")
+                current_subsection = get_subsection(current_section, desc, current_title, db_id)
                 current_title = ""
             elif desc != "":
                 current_title = desc
@@ -192,11 +215,13 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
         
         # Ensure structure for JSON
         if current_section is None: current_section = get_section("General Section")
-        sub_name = current_subsection_name if current_subsection_name else "General Subsection"
-        current_subsection = get_subsection(current_section, sub_name, current_title)
+        if current_subsection is None:
+            sub_name = "General Subsection"
+            current_subsection = get_subsection(current_section, sub_name, current_title)
         
         # 4.1 Check for manual link feedback
         manual_prim_id = handler.primavera_links.get(combined_context)
+        negative_ids = handler.primavera_negative_links.get(combined_context, [])
         
         matches = []
         
@@ -231,7 +256,9 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
                     p_id_parts = p_id.split('-')
                     # Check if target_erc_prefix is in any of the first 3 parts of Primavera ID
                     if any(target_erc_prefix == part for part in p_id_parts[:3]):
-                        filtered_indices.append(prim_df.index.get_loc(p_idx))
+                        # Filter out negative IDs
+                        if p_id not in negative_ids:
+                            filtered_indices.append(prim_df.index.get_loc(p_idx))
             
             if filtered_indices:
                 # Semantic matching with combined context
@@ -271,8 +298,16 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
                     })
             
         # Add to JSON structure
+        # Add to JSON structure
+        # Use BOQ_ID from input if available, else generate one
+        boq_id_val = row.get('BOQ_ID')
+        if pd.notna(boq_id_val):
+            item_id = int(boq_id_val)
+        else:
+            item_id = int(idx) + 2000
+
         item_obj = {
-            "id": int(idx) + 2000,
+            "id": item_id,
             "description": desc,
             "unit": str(row.get('Unit', '')),
             "quantity": str(row.get('Quantity', '')),
@@ -288,6 +323,8 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
     with open(output_path_json, 'w') as f:
         json.dump(json_root, f, indent=4)
     print(f"Linked JSON data saved to {output_path_json}")
+    
+    return json_root
 
 if __name__ == "__main__":
     # When running from within rl_engine, inputs and outputs are in the parent directory

@@ -11,6 +11,7 @@ DEVICE = "cpu"
 MODEL_SAVE_PATH = os.path.join(BASE_DIR, "models/rl_erc_model.pth")
 LABEL_ENCODERS_PATH = os.path.join(BASE_DIR, "models/label_encoders.pkl")
 PRIMAVERA_LINKS_PATH = os.path.join(BASE_DIR, "models/primavera_links.json")
+PRIMAVERA_NEGATIVE_LINKS_PATH = os.path.join(BASE_DIR, "models/primavera_negative_links.json")
 SBERT_MODEL_NAME = 'all-MiniLM-L6-v2'
 import json
 
@@ -66,6 +67,14 @@ class RLFeedbackHandler:
                     self.primavera_links = json.load(f)
             except Exception as e:
                 print(f"Warning: Could not load Primavera links: {e}")
+
+        self.primavera_negative_links = {}
+        if os.path.exists(PRIMAVERA_NEGATIVE_LINKS_PATH):
+            try:
+                with open(PRIMAVERA_NEGATIVE_LINKS_PATH, 'r') as f:
+                    self.primavera_negative_links = json.load(f)
+            except Exception as e:
+                print(f"Warning: Could not load Primavera negative links: {e}")
 
     def predict(self, activity_name):
         self.agent.eval()
@@ -181,6 +190,25 @@ class RLFeedbackHandler:
             print(f"Primavera link updated: {boq_desc} -> {prim_id}")
         except Exception as e:
             print(f"Error saving Primavera links: {e}")
+
+    def update_primavera_negative_link(self, boq_desc, prim_id):
+        """
+        Adds a Primavera Activity ID to the negative list for a BOQ description.
+        """
+        if boq_desc not in self.primavera_negative_links:
+            self.primavera_negative_links[boq_desc] = []
+        
+        if prim_id not in self.primavera_negative_links[boq_desc]:
+            self.primavera_negative_links[boq_desc].append(prim_id)
+            
+            # Save updated links
+            try:
+                os.makedirs(os.path.dirname(PRIMAVERA_NEGATIVE_LINKS_PATH), exist_ok=True)
+                with open(PRIMAVERA_NEGATIVE_LINKS_PATH, 'w') as f:
+                    json.dump(self.primavera_negative_links, f, indent=4)
+                print(f"Primavera negative link added: {boq_desc} -> {prim_id}")
+            except Exception as e:
+                print(f"Error saving Primavera negative links: {e}")
 
 if __name__ == "__main__":
     # Simple test

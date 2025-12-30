@@ -4,191 +4,131 @@ from django.db import transaction
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Project, Category, SubCategory, Activity
-from .serializers import ProjectSerializer
-
-
-class UploadPrimaveraView(APIView):
-    """
-    Upload an Excel file and automatically parse and save hierarchy
-    (Project → Category → Subcategory → Activities)
-    """
-
-    def post(self, request, *args, **kwargs):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            # Read Excel file
-            df = pd.read_excel(file)
-            df["Activity Location"] = ""
-
-            # Function to detect hierarchy level by indentation
-            def get_indent_level(val):
-                if pd.isna(val):
-                    return None
-                spaces = len(val) - len(val.lstrip(' '))
-                if spaces == 0:
-                    return 0
-                elif spaces == 2:
-                    return 1
-                elif spaces == 4:
-                    return 2
-                else:
-                    return 3
-
-            df["Level"] = df["Activity ID"].apply(get_indent_level)
-
-            # Safe date conversion helper
-            def safe_date(val):
-                if pd.isna(val):
-                    return None
-                if isinstance(val, pd.Timestamp):
-                    return val.date()
-                if isinstance(val, date):
-                    return val
-                return None
-
-            # Initialize placeholders
-            project = None
-            category = None
-            subcategory = None
-            activities_to_create = []
-
-            with transaction.atomic():  # ensure atomic insert
-                for _, row in df.iterrows():
-                    level = row["Level"]
-
-                    if level == 0:
-                        project, _ = Project.objects.get_or_create(name=row["Activity ID"].strip())
-
-                    elif level == 1 and project:
-                        category, _ = Category.objects.get_or_create(
-                            project=project,
-                            name=row["Activity ID"].strip()
-                        )
-
-                    elif level == 2 and category:
-                        subcategory, _ = SubCategory.objects.get_or_create(
-                            category=category,
-                            name=row["Activity ID"].strip()
-                        )
-
-                    elif level == 3 and subcategory:
-                        activity = Activity(
-                            subcategory=subcategory,
-                            activity_id=row["Activity ID"].strip(),
-                            activity_name=row.get("Activity Name"),
-                            original_duration=row.get("Original Duration"),
-                            early_start=safe_date(row.get("Early Start")),
-                            early_finish=safe_date(row.get("Early Finish")),
-                            late_start=safe_date(row.get("Late Start")),
-                            late_finish=safe_date(row.get("Late Finish")),
-                            total_float=row.get("Total Float"),
-                            budgeted_total_cost=row.get("Budgeted Total Cost"),
-                            owner=row.get("Owner"),
-                            activity_location=row.get("Activity Location", "")
-                        )
-                        activities_to_create.append(activity)
-
-                # Bulk insert all activities at once
-                if activities_to_create:
-                    Activity.objects.bulk_create(activities_to_create, batch_size=1000)
-
-            return Response(
-                {"message": f"✅ Data imported successfully — {len(activities_to_create)} activities saved."},
-                status=status.HTTP_201_CREATED
-            )
-
-        except Exception as e:
-            return Response(
-                {"error": f"Import failed: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-class ProjectHierarchyView(generics.ListAPIView):
-    """
-    Retrieve full Primavera hierarchy (Project → Category → Subcategory → Activities)
-    """
-    queryset = Project.objects.all()
-    serializer_class = ProjectSerializer
-
-
-# planning/views.py
-
+from .models import P6Activity, MappingResult, PrimaveraSheet
+from .serializers import P6ActivitySerializer, PrimaveraSheetSerializer
+from .utils import import_primavera_data
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
-
 from estimation.models import BOQItem
-from .services.p6_extractor import P6Extractor
-#from .services.matching_engine import MatchingEngine
+from rl_engine.rl_feedback_loop import RLFeedbackHandler
+from projects.models import SubPhase
+import os
+import tempfile
 
-import pandas as pd
-import re
+class PrimaveraSheetViewSet(viewsets.ModelViewSet):
+    queryset = PrimaveraSheet.objects.all()
+    serializer_class = PrimaveraSheetSerializer
+
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def import_data(self, request):
+        """
+        Upload and import Primavera P6 data from Excel.
+        Requires 'file' and 'subphase_id'.
+        """
+        file_obj = request.FILES.get('file')
+        subphase_id = request.data.get('subphase_id')
+        sheet_name = request.data.get('name', 'Uploaded Sheet')
+
+        if not file_obj or not subphase_id:
+            return Response({"error": "file and subphase_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subphase = SubPhase.objects.get(id=subphase_id)
+        except SubPhase.DoesNotExist:
+            return Response({"error": "SubPhase not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create PrimaveraSheet
+        sheet = PrimaveraSheet.objects.create(
+            subphase=subphase,
+            name=sheet_name,
+            file=file_obj
+        )
+
+        # Save to temporary file to pass to utility (or use the saved file path)
+        # Since we saved it to the model, we can use sheet.file.path
+        
+        try:
+            result = import_primavera_data(sheet.file.path, sheet)
+            return Response({
+                "sheet_id": sheet.id,
+                "import_stats": result
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            # Cleanup if failed? Maybe keep the sheet record but empty?
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class P6ActivityViewSet(viewsets.ModelViewSet):
+    """
+    CRUD API for P6Activity.
+    Supports filtering by primavera_sheet ID via query param: ?primavera_sheet=1
+    """
+    queryset = P6Activity.objects.all()
+    serializer_class = P6ActivitySerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        sheet_id = self.request.query_params.get('primavera_sheet')
+        if sheet_id:
+            queryset = queryset.filter(primavera_sheet_id=sheet_id)
+        return queryset
 
 
-# ------------------------------
-# Extract BOQ code from subsection name
-# ------------------------------
-def extract_boq_code(name: str):
-    if not isinstance(name, str):
-        return ""
+class PrimaveraFeedbackView(APIView):
+    """
+    API to handle user feedback for BOQ-Primavera linking.
+    Payload:
+    {
+        "boq_item_id": 123,
+        "correct_ids": ["A100", "B200"],
+        "incorrect_ids": ["C300"]
+    }
+    """
+    def post(self, request):
+        boq_item_id = request.data.get('boq_item_id')
+        correct_ids = request.data.get('correct_ids', [])
+        incorrect_ids = request.data.get('incorrect_ids', [])
 
-    name = name.strip()
+        if not boq_item_id:
+            return Response({"error": "boq_item_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Case: LT-04; Bedroom...
-    if ";" in name:
-        return name.split(";", 1)[0].strip()
+        try:
+            boq_item = BOQItem.objects.get(id=boq_item_id)
+        except BOQItem.DoesNotExist:
+            return Response({"error": "BOQItem not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Case: R8 ELECTRICAL ENGINEERING - ...
-    first_token = name.split()[0]
+        handler = RLFeedbackHandler()
+        
+        # Let's use the full description as the key for negative links
+        # Ideally this should match the context used in linking
+        combined_context = boq_item.description.strip() 
+        
+        # 1. Handle Incorrect IDs (Negative Feedback)
+        for bad_id in incorrect_ids:
+            handler.update_primavera_negative_link(combined_context, bad_id)
 
-    # Valid patterns:
-    #   R8, R31, LT-04, LT3, A12
-    if re.match(r"^[A-Za-z]+\d+(-\d+)?$", first_token):
-        return first_token
+        # 2. Handle Correct IDs (Positive Feedback & DB Saving)
+        saved_count = 0
+        for good_id in correct_ids:
+            # Save to JSON for immediate override in linking script
+            handler.update_primavera_link(combined_context, good_id)
+            
+            # Save to MappingResult
+            try:
+                p6_activity = P6Activity.objects.get(activity_id=good_id)
+                MappingResult.objects.update_or_create(
+                    boq=boq_item,
+                    p6=p6_activity,
+                    defaults={'confidence': 1.0} # Manual feedback implies 100% confidence
+                )
+                saved_count += 1
+            except P6Activity.DoesNotExist:
+                print(f"Warning: P6Activity {good_id} not found in DB.")
 
-    return first_token
-
-#
-# class UploadP6AndMatch(APIView):
-#     parser_classes = [MultiPartParser, FormParser]
-#
-#     def post(self, request):
-#         file = request.FILES.get("planning_sheet")
-#         if not file:
-#             return Response(
-#                 {"error": "No file provided"},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-#
-#         try:
-#             # Step 1: Extract P6 data
-#             logger.info("Extracting P6 activities...")
-#             p6_df = P6Extractor.extract_and_save(file)
-#
-#             # Step 2: Rebuild ChromaDB index with correct dimensions
-#             logger.info("Rebuilding ChromaDB BOQ index...")
-#             indexer = ChromaBOQIndexer()
-#             indexer.rebuild_index()
-#
-#             # Step 3: Perform matching
-#             logger.info("Starting matching process...")
-#             engine = LLMMatchingEngine()
-#             matches = engine.match_and_save(p6_df)
-#
-#             return Response({
-#                 "status": "success",
-#                 "matched": len(matches),
-#                 "sample": matches[:10]
-#             }, status=status.HTTP_200_OK)
-#
-#         except Exception as e:
-#             logger.error(f"Error during upload and match: {str(e)}", exc_info=True)
-#             return Response(
-#                 {"error": str(e)},
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
+        return Response({
+            "message": "Feedback applied successfully",
+            "saved_mappings": saved_count,
+            "negative_feedback_applied": len(incorrect_ids)
+        }, status=status.HTTP_200_OK)

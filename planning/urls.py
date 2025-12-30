@@ -1,8 +1,12 @@
-from django.urls import path
-from .views import UploadPrimaveraView, ProjectHierarchyView#, UploadP6AndMatch
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import P6ActivityViewSet, PrimaveraSheetViewSet, PrimaveraFeedbackView
+
+router = DefaultRouter()
+router.register(r'p6-activities', P6ActivityViewSet, basename='p6-activities')
+router.register(r'primavera-sheets', PrimaveraSheetViewSet, basename='primavera-sheets')
 
 urlpatterns = [
-    path('upload/', UploadPrimaveraView.as_view(), name='upload-primavera'),
-    path('projects/', ProjectHierarchyView.as_view(), name='project-hierarchy'),
-    # path("upload-planning/", UploadP6AndMatch.as_view(), name="upload-planning"),
+    path('feedback/', PrimaveraFeedbackView.as_view(), name='primavera-feedback'),
+    path('', include(router.urls)),
 ]
