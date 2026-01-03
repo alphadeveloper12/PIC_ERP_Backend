@@ -214,6 +214,11 @@ class LinkPrimavera(APIView):
         if not activities.exists():
              return Response({'detail': 'No activities found for this sheet.'}, status=status.HTTP_400_BAD_REQUEST)
              
+        # Initialize ERC Model
+        from planning.services.erc_model import ERCModel
+        erc_model = ERCModel()
+        erc_model.load_model()
+
         # 2. Export P6 Activities to temporary Excel file
         data = []
         for act in activities:
@@ -221,8 +226,16 @@ class LinkPrimavera(APIView):
             def make_naive(dt):
                 return dt.replace(tzinfo=None) if dt else None
 
+            # Check and generate ERC Code if missing
+            if not act.erc_code or act.erc_code.strip() == '':
+                predicted_codes = erc_model.predict([act.activity_name])
+                new_code = predicted_codes[0] if predicted_codes else act.activity_id
+                act.erc_code = new_code
+                act.save(update_fields=['erc_code'])
+
             data.append({
                 'Activity ID': act.activity_id,
+                'ERC_Code': act.erc_code,
                 'Activity Name': act.activity_name,
                 'Original Duration': act.original_duration,
                 'Early Start': make_naive(act.early_start),

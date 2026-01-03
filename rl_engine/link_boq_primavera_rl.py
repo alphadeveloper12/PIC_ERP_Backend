@@ -83,12 +83,17 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
     
     prim_id_col = None
     prim_name_col = None
+    prim_erc_col = None
     for col in prim_df.columns:
         if 'Activity ID' in str(col): prim_id_col = col
         if 'Activity Name' in str(col): prim_name_col = col
+        if 'ERC_Code' in str(col) or 'ERC Code' in str(col): prim_erc_col = col
     
     if not prim_id_col or not prim_name_col:
         prim_id_col, prim_name_col = prim_df.columns[0], prim_df.columns[1]
+    
+    if not prim_erc_col:
+        prim_erc_col = prim_id_col
 
     # Clean Primavera Data
     prim_df = clean_primavera_data(prim_df, prim_id_col, prim_name_col)
@@ -231,7 +236,7 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
                 best_prim_row = match_rows.iloc[0]
                 matches.append({
                     'desc': best_prim_row[prim_name_col],
-                    'ERC_code': str(best_prim_row[prim_id_col]).strip(),
+                    'ERC_code': str(best_prim_row[prim_erc_col]).strip(),
                     'Activity_ID': str(best_prim_row[prim_id_col]).strip(),
                     'Original Duration': best_prim_row.get('Original Duration', ''),
                     'Early Start': str(best_prim_row.get('Early Start', '')),
@@ -285,7 +290,7 @@ def link_boq_primavera(boq_path, primavera_path, output_path_json):
 
                     matches.append({
                         'desc': str(best_prim_row[prim_name_col]),
-                        'ERC_code': str(best_prim_row[prim_id_col]).strip(),
+                        'ERC_code': str(best_prim_row[prim_erc_col]).strip(),
                         'Activity_ID': str(best_prim_row[prim_id_col]).strip(),
                         'Original Duration': safe_val(best_prim_row.get('Original Duration')),
                         'Early Start': str(best_prim_row.get('Early Start', '')),

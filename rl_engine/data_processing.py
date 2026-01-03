@@ -8,11 +8,36 @@ import torch
 from django.conf import settings
 
 
+def read_file_robust(file_path, **kwargs):
+    """
+    Reads a file robustly, handling both Excel and CSV formats.
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    if ext == '.csv':
+        return pd.read_csv(file_path, **kwargs)
+    
+    # Try reading as Excel first
+    try:
+        # Explicitly use openpyxl for .xlsx files
+        if ext == '.xlsx':
+            return pd.read_excel(file_path, engine='openpyxl', **kwargs)
+        return pd.read_excel(file_path, **kwargs)
+    except Exception as e:
+        # If Excel reading fails, attempt to read as CSV as a fallback
+        # This handles cases where the file might be a CSV with an .xlsx extension or no extension
+        try:
+            return pd.read_csv(file_path, **kwargs)
+        except:
+            # If both fail, raise the original Excel exception
+            raise e
+
+
 def clean_boq_data_util(input_file_path):
     """
     Cleans the BOQ data from a file path and returns a cleaned DataFrame.
     """
-    df = pd.read_excel(input_file_path, header=None)
+    df = read_file_robust(input_file_path, header=None)
 
     # Replace empty strings and whitespace with NaN
     df = df.replace(r'^\s*$', np.nan, regex=True)
@@ -40,7 +65,7 @@ def clean_primavera_data_util(input_file_path):
     """
     Cleans Primavera P6 data from a file path and returns a cleaned DataFrame.
     """
-    df = pd.read_excel(input_file_path, header=0)
+    df = read_file_robust(input_file_path, header=0)
 
     # Identify Activity Name column
     activity_col = None

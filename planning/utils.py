@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from .models import P6Activity
 from rl_engine.data_processing import clean_primavera_data_util
+from .services.erc_model import ERCModel
 
 def import_primavera_data(file_path, primavera_sheet):
     """
@@ -10,6 +11,10 @@ def import_primavera_data(file_path, primavera_sheet):
     """
     # Use the existing cleanup utility from rl_engine
     df = clean_primavera_data_util(file_path)
+    
+    # Initialize ERC Model
+    erc_model = ERCModel()
+    erc_model.load_model()
     
     created_count = 0
     updated_count = 0
@@ -21,12 +26,14 @@ def import_primavera_data(file_path, primavera_sheet):
         return val
 
     for _, row in df.iterrows():
-        # Find the Activity ID column
+        # Find the Activity ID and ERC Code columns
         activity_id_col = None
+        erc_code_col = None
         for col in df.columns:
             if 'Activity ID' in str(col):
                 activity_id_col = col
-                break
+            if 'ERC_Code' in str(col) or 'ERC Code' in str(col):
+                erc_code_col = col
         
         if not activity_id_col:
              continue
@@ -40,9 +47,18 @@ def import_primavera_data(file_path, primavera_sheet):
             continue
 
         activity_name = str(row[activity_name_col]).strip()
+
+        # Determine ERC Code
+        if erc_code_col and pd.notna(row[erc_code_col]):
+            erc_code = str(row[erc_code_col]).strip()
+        else:
+            # Use ML/Rule-based model to predict ERC Code
+            predicted_codes = erc_model.predict([activity_name])
+            erc_code = predicted_codes[0] if predicted_codes else activity_id
         
         defaults = {
             'activity_name': activity_name,
+            'erc_code': erc_code,
             'original_duration': clean_val(row.get('Original Duration')),
             'early_start': clean_val(row.get('Early Start')),
             'early_finish': clean_val(row.get('Early Finish')),

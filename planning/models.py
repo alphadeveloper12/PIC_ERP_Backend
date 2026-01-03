@@ -18,6 +18,7 @@ class PrimaveraSheet(models.Model):
 class P6Activity(models.Model):
     primavera_sheet = models.ForeignKey(PrimaveraSheet, on_delete=models.CASCADE, related_name='activities', null=True) # null=True for migration
     activity_id = models.CharField(max_length=100)
+    erc_code = models.CharField(max_length=100, null=True, blank=True)
     activity_name = models.TextField()
     original_duration = models.FloatField(null=True, blank=True)
     early_start = models.DateTimeField(null=True, blank=True)
