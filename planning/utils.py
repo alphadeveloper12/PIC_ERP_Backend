@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from .models import P6Activity
-from rl_engine.data_processing import clean_primavera_data_util
+from rl_engine_v2.data_processing import clean_primavera_data_util
 from .services.erc_model import ERCModel
 
 def import_primavera_data(file_path, primavera_sheet):

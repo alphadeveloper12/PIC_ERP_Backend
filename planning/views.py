@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from estimation.models import BOQItem
-from rl_engine.rl_feedback_loop import RLFeedbackHandler
+from rl_engine_v2.rl_feedback_v2 import RLFeedbackHandler
 from projects.models import SubPhase
 import os
 import tempfile

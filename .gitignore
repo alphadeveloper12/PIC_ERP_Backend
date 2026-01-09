@@ -12,4 +12,4 @@ __pycache__/
 # Your existing ignores
 .idea/
 .venv/
-venv/
+venv

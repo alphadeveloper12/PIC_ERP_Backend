@@ -40,12 +40,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',   # <— add this above all apps
     'auth_app',   # our new app
-    # 'chatgpt',  # <— add this line
     'excel',
     'core',
     'projects',
     'estimation',
     'planning',
+    'dms',
+    'contracts',
     'api',
     'django_celery_results',
     'django_celery_beat',

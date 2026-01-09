@@ -1,0 +1,1208 @@
+{
+    "info": {
+        "_postman_id": "06ee8ab9-1dfc-4097-8ea7-008dc1764a1d",
+        "name": "PIC ERP Backend",
+        "description": "ERP System endpoints for Django backend",
+        "schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+        "_exporter_id": "30945215"
+    },
+    "item": [
+        {
+            "name": "Companies",
+            "item": [
+                {
+                    "name": "List Companies",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/companies/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Company",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"New Construction Co.\",\n  \"code\": \"NCC01\",\n  \"image\": null,\n  \"address\": \"Dubai, UAE\",\n  \"is_active\": true\n}"
+                        },
+                        "url": "{{base_url}}/core/companies/create/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Departments",
+            "item": [
+                {
+                    "name": "List Departments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/departments/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Department",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Engineering\",\n  \"description\": \"Engineering & Design Department\",\n  \"company\": 3\n}"
+                        },
+                        "url": "{{base_url}}/core/departments/create/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Roles",
+            "item": [
+                {
+                    "name": "List Roles",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/roles/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Role",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"QA/QC Engineer\",\n  \"department\": 7,\n  \"description\": \"Responsible for site quality control\"\n}"
+                        },
+                        "url": "{{base_url}}/core/roles/create/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Permissions",
+            "item": [
+                {
+                    "name": "List Permissions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/permissions/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Permission",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"code\": \"create_po\",\n  \"description\": \"Create Purchase Orders\"\n}"
+                        },
+                        "url": "{{base_url}}/core/permissions/create/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Assign Role Permissions",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"role_id\": 3,\n  \"permission_codes\": [\"create_po\", \"approve_pr_po\"]\n}"
+                        },
+                        "url": "{{base_url}}/core/roles/assign-permissions/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "User Roles",
+            "item": [
+                {
+                    "name": "List User Roles",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/user-roles/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Assign User Role",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"user\": 102,\n  \"department\": 4,\n  \"role\": 13\n}"
+                        },
+                        "url": "{{base_url}}/core/user-roles/assign/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Profiles / Employees",
+            "item": [
+                {
+                    "name": "List Profiles",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/profiles/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"user\": 107,\n  \"company\": 3,\n  \"role\": \"Buyer Engineer\",\n  \"first_name\":\"tester\",\n  \"last_name\": \"ERC\"\n}"
+                        },
+                        "url": "{{base_url}}/core/profiles/create/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Current User Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/auth/me/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Positions & Employees",
+            "item": [
+                {
+                    "name": "List Positions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/core/positions/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Employee",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"user\": 107,\n  \"company\": 1,\n  \"position\": 3,\n  \"grade\": 4,\n  \"first_name\": \"Ali\",\n  \"last_name\": \"Mughal\",\n  \"nationality\": \"Pakistan\",\n  \"hire_date\": \"2025-02-01\",\n  \"work_location\": 2\n}"
+                        },
+                        "url": "{{base_url}}/core/employees/create/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Project",
+            "item": [
+                {
+                    "name": "Create Project",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Project Alpha\",\n  \"code\": \"PRJ-001\",\n  \"company\": 2,\n  \"owner\": \"John Doe\",\n  \"start_date\": \"2025-12-01\",\n  \"end_date\": \"2026-12-01\",\n  \"location\": \"City A\",\n  \"status\": \"planned\"\n}"
+                        },
+                        "url": "http://127.0.0.1:8000/api/project/create"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Project",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Updated Project Alpha\",\n  \"code\": \"PRJ-001\",\n  \"company\": 1,\n  \"owner\": \"John Doe\",\n  \"start_date\": \"2025-12-01\",\n  \"end_date\": \"2026-12-01\",\n  \"location\": \"City A\",\n  \"status\": \"ongoing\"\n}"
+                        },
+                        "url": "http://127.0.0.1:8000/api/project/1/update"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Project by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "http://127.0.0.1:8000/api/project/1"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create SubPhase",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Estimation Phase\",\n  \"project\": 2,\n  \"start_date\": \"2025-12-01\",\n  \"end_date\": \"2026-02-01\"\n}"
+                        },
+                        "url": "http://127.0.0.1:8000/api/subphase/create"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All SubPhases",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "http://127.0.0.1:8000/api/subphase/list?project_id=1",
+                            "protocol": "http",
+                            "host": [
+                                "127",
+                                "0",
+                                "0",
+                                "1"
+                            ],
+                            "port": "8000",
+                            "path": [
+                                "api",
+                                "subphase",
+                                "list"
+                            ],
+                            "query": [
+                                {
+                                    "key": "project_id",
+                                    "value": "1"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Estimation",
+            "item": [
+                {
+                    "name": "BOQs",
+                    "item": [
+                        {
+                            "name": "Upload BOQ Via Sheet",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "boq_file",
+                                            "type": "file",
+                                            "src": "/C:/Users/SDC/Downloads/bill12.xlsx"
+                                        },
+                                        {
+                                            "key": "estimation_id",
+                                            "value": "2",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": "http://127.0.0.1:8000/api/upload/boq/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Upload & Link Primavera",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "primavera_file",
+                                            "type": "file",
+                                            "src": "/home/mughal41/PycharmProjects/DjangoProject/planning_phase/inputs/primavera-p6.xlsx"
+                                        },
+                                        {
+                                            "key": "boq_id",
+                                            "value": "9",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": "http://127.0.0.1:8000/api/link-primavera/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get All BOQs",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "http://127.0.0.1:8000/api/boq?project_id=1",
+                                    "protocol": "http",
+                                    "host": [
+                                        "127",
+                                        "0",
+                                        "0",
+                                        "1"
+                                    ],
+                                    "port": "8000",
+                                    "path": [
+                                        "api",
+                                        "boq"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "project_id",
+                                            "value": "1"
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update BOQ and Create Revision",
+                            "request": {
+                                "method": "PUT",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"name\": \"Updated BOQ Title\",\n  \"sections\": [            \n    {\n        \"id\": 203,\n        \"name\": \"SECTIOadsadaNNN E - METALWORK\"\n    }\n  ],\n  \"subsections\": [\n    {\n        \"id\": 481,\n        \"name\": \"E3 - NONN-STRUadCTURAL METALWORK\"\n    }\n  ]\n\n}"
+                                },
+                                "url": "http://127.0.0.1:8000/api/boq/18/update/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Export BOQ as PDF",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "http://127.0.0.1:8000/api/export/pdf/18"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Export BOQ as EXCEL",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "http://127.0.0.1:8000/api/export/excel/18"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get BOQ by ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "http://127.0.0.1:8000/api/boq/14"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update BOQItem Labor|Plant|Subcontract",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n\n  \"labor_hours\": 1.5,\n  \"labor_amount\": 8,\n\n  \"plant_rate\": 15,\n  \"plant_amount\":2,\n\n  \"subcontract_rate\": 0.1,\n  \"subcontract_amount\": 1\n}"
+                                },
+                                "url": "http://127.0.0.1:8000/api/boq-item/2969/update/",
+                                "description": "Example request to update costs for BOQItem with ID=42"
+                            },
+                            "response": [
+                                {
+                                    "name": "200 OK - Successful Update",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"labor_hours\": 8,\n  \"labor_rate\": 150,\n  \"plant_rate\": 250,\n  \"subcontract_rate\": 400\n}"
+                                        },
+                                        "url": "http://127.0.0.1:8000/api/boq-item/42/update-costs/"
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "cookie": [],
+                                    "body": "{\n  \"message\": \"BOQItem costs updated successfully\",\n  \"data\": {\n    \"id\": 42,\n    \"description\": \"Excavation Work\",\n    \"labor_hours\": 8,\n    \"labor_rate\": 150,\n    \"labor_amount\": 1200.0,\n    \"plant_rate\": 250.0,\n    \"plant_amount\": 2500.0,\n    \"subcontract_rate\": 400.0,\n    \"subcontract_amount\": 4000.0,\n    \"dry_cost\": 7700.0,\n    \"unit_rate\": 38.5,\n    \"boq_amount\": 7700.0\n  }\n}"
+                                },
+                                {
+                                    "name": "400 Bad Request - Invalid Field",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n\n  \"labor_hours\": 1.5,\n  \"labor_amount\": 8,\n\n  \"plant_rate\": 15,\n  \"plant_amount\":2,\n\n  \"subcontract_rate\": 0.1,\n  \"subcontract_amount\": 1\n}"
+                                        },
+                                        "url": "http://127.0.0.1:8000/api/boq-item/2969/update/",
+                                        "description": "Example request to update costs for BOQItem with ID=42"
+                                    },
+                                    "status": "Bad Request",
+                                    "code": 400,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [],
+                                    "cookie": [],
+                                    "body": "{\n  \"labor_rate\": [\"A valid number is required.\"]\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Get Primavera Suggestions(Sheet ID)",
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "boq_id",
+                                            "value": "14",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "primavera_sheet_id",
+                                            "value": "10",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": "{{base_url}}/api/link-primavera/"
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Materials",
+                    "item": [
+                        {
+                            "name": "Create Material",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"boq_item\": 1,\n  \"name\": \"Cement 50kg Bag\",\n  \"rate\": 18.5,\n  \"u_rate\": 10,\n  \"wastage\": 5\n}"
+                                },
+                                "url": "{{base_url}}/api/materials/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update Material",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"rate\": 20\n}"
+                                },
+                                "url": "{{base_url}}/api/materials/3/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Fetch Materials by BOQItem",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "{{base_url}}/api/materials/by-item/2969/"
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Estimation",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"subphase\": 3,\n  \"total_estimated_cost\": 100000,\n  \"notes\": \"Estimation for Project Alpha\",\n  \"status\": \"DRAFT\",\n  \"currency\":1\n}"
+                        },
+                        "url": "http://127.0.0.1:8000/api/estimation/create"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Estimation",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"subphase\": 1,\n  \"total_estimated_cost\": 150000,\n  \"notes\": \"Updated Estimation for Project Alpha\",\n  \"status\": \"approved\",\n  \"currency\": \"USD\"\n}"
+                        },
+                        "url": "http://127.0.0.1:8000/api/estimation/1/update"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Estimation by Project ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "http://127.0.0.1:8000/api/estimation?project_id=2",
+                            "protocol": "http",
+                            "host": [
+                                "127",
+                                "0",
+                                "0",
+                                "1"
+                            ],
+                            "port": "8000",
+                            "path": [
+                                "api",
+                                "estimation"
+                            ],
+                            "query": [
+                                {
+                                    "key": "project_id",
+                                    "value": "2"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Planning",
+            "item": [
+                {
+                    "name": "Data",
+                    "item": [
+                        {
+                            "name": "Upload Primavera Sheet",
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "file",
+                                            "type": "file",
+                                            "src": "/home/mughal41/Downloads/classifier_primavera/inputs/primavera-p6.xlsx"
+                                        },
+                                        {
+                                            "key": "subphase_id",
+                                            "value": "",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "name",
+                                            "value": "Baseline Schedule 1",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": "{{base_url}}/planning/primavera-sheets/import_data/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "List Sheets",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "",
+                                        "type": "text",
+                                        "disabled": true
+                                    }
+                                ],
+                                "url": "{{base_url}}/planning/primavera-sheets/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Sheet by ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "",
+                                        "type": "text",
+                                        "disabled": true
+                                    }
+                                ],
+                                "url": "{{base_url}}/planning/primavera-sheets/1/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update Sheet",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"name\": \"Updated Sheet Nme\"\n}"
+                                },
+                                "url": "{{base_url}}/planning/primavera-sheets/1/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Delete Sheet",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Accept-Charset",
+                                        "value": "",
+                                        "type": "text",
+                                        "disabled": true
+                                    }
+                                ],
+                                "url": "{{base_url}}/planning/primavera-sheets/1/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "List Activities (All)",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept-Charset",
+                                        "value": "",
+                                        "type": "text",
+                                        "disabled": true
+                                    }
+                                ],
+                                "url": "{{base_url}}/planning/p6-activities/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "List Activities by Sheet ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/planning/p6-activities/?primavera_sheet=",
+                                    "host": [
+                                        "{{base_url}}"
+                                    ],
+                                    "path": [
+                                        "planning",
+                                        "p6-activities",
+                                        ""
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "primavera_sheet",
+                                            "value": ""
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Activity by ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "",
+                                        "type": "text",
+                                        "disabled": true
+                                    }
+                                ],
+                                "url": "{{base_url}}/planning/p6-activities/1/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Create Activity",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"activity_id\": \"A1000\",\n    \"activity_name\": \"New Activity\",\n    \"primavera_sheet\": 9\n}"
+                                },
+                                "url": "{{base_url}}/planning/p6-activities/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update Activity",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"activity_name\": \"Updated Activit Name\"\n}"
+                                },
+                                "url": "{{base_url}}/planning/p6-activities/1/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Delete Activity",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [],
+                                "url": "{{base_url}}/planning/p6-activities/31/"
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Primavera Feedback (JSON)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"boq_item_id\": 3928,\n    \"correct_ids\": [\"NH9-CN-SB-3630\"],\n    \"incorrect_ids\": [\"NH9-CN-MSE-43000\",\"NH9-CN-SB-36290\"]\n}"
+                        },
+                        "url": "{{base_url}}/planning/feedback/"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "DMS",
+            "item": [
+                {
+                    "name": "Departments",
+                    "item": [
+                        {
+                            "name": "List Departments",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "{{base_url}}/dms/departments/"
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Tasks",
+                    "item": [
+                        {
+                            "name": "List Tasks (My Tasks)",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/dms/tasks/?mode=my_tasks&project_id=1",
+                                    "query": [
+                                        {
+                                            "key": "mode",
+                                            "value": "my_tasks"
+                                        },
+                                        {
+                                            "key": "project_id",
+                                            "value": "1"
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Create Task (Manual)",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"title\": \"Review Site Drawings\",\n  \"description\": \"Urgent review required.\",\n  \"project\": 1,\n  \"workflow_step\": 1,\n  \"priority\": \"HIGH\",\n  \"due_date\": \"2026-02-01\"\n}"
+                                },
+                                "url": "{{base_url}}/dms/tasks/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Assign Task",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"action\": \"ASSIGN\",\n  \"assigned_to\": 2,\n  \"comments\": \"Please review this document.\"\n}"
+                                },
+                                "url": "{{base_url}}/dms/tasks/1/perform_action/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Approve Task",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"action\": \"APPROVE\",\n  \"comments\": \"Approved based on technical review.\"\n}"
+                                },
+                                "url": "{{base_url}}/dms/tasks/1/perform_action/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Dashboard Stats",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "{{base_url}}/dms/tasks/dashboard_stats/?project_id=1"
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Documents",
+                    "item": [
+                        {
+                            "name": "Upload Document",
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "file",
+                                            "type": "file",
+                                            "src": []
+                                        },
+                                        {
+                                            "key": "task",
+                                            "value": "1",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "document_type",
+                                            "value": "DRAWING",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "version",
+                                            "value": "1.0",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "project",
+                                            "value": "1",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": "{{base_url}}/dms/documents/"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "List Documents",
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": "{{base_url}}/dms/documents/?task=1"
+                            },
+                            "response": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "AI Contracts",
+            "item": [
+                {
+                    "name": "List Contracts",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/contracts/contracts/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upload Contract",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "title",
+                                    "value": "Main Construction Agreement",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "project",
+                                    "value": "1",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                },
+                                {
+                                    "key": "contract_value",
+                                    "value": "5000000",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "start_date",
+                                    "value": "2026-01-01",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": "{{base_url}}/contracts/contracts/"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Process Contract (AI Embedding)",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": "{{base_url}}/contracts/contracts/1/process/"
+                    },
+                    "description": "Triggers the local SBERT model to parse and embed clauses.",
+                    "response": []
+                },
+                {
+                    "name": "Semantic Search",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/contracts/contracts/1/search/?q=When is the payment due?",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "contracts",
+                                "contracts",
+                                "1",
+                                "search",
+                                ""
+                            ],
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "When is the payment due?",
+                                    "description": "Natural language query"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8000"
+        }
+    ]
+}

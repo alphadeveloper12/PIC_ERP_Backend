@@ -60,7 +60,9 @@ class Inventory(models.Model):
         return f"{self.material.name} - {self.stock_quantity} {self.material.uom}"
 
 
+
 class ProcurementOrder(models.Model):
+    project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, related_name='procurement_orders', null=True, blank=True)
     po_number = models.CharField(max_length=100, unique=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE)
     material = models.ForeignKey(RawMaterial, on_delete=models.CASCADE)

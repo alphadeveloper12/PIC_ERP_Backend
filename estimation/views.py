@@ -38,7 +38,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 from io import BytesIO
 from io import BytesIO
-from rl_engine.data_processing import clean_boq_data_util
+from rl_engine_v2.data_processing import clean_boq_data_util
 from rl_engine_v2.link_boq_primavera_v2 import link_boq_primavera_v2
 from .utils.data_processing import json_serial
 
