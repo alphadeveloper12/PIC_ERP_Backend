@@ -19,18 +19,25 @@ def extract_boq(file_or_df, boq):
 
         # If columns are numeric (no headers), try to find the header row or assign defaults
         if all(isinstance(c, int) for c in boq_data.columns):
-            # Look for a row that contains 'Description'
+            # Look for a row that contains 'description' or 'Description'
             for idx, row in boq_data.iterrows():
-                if any('Description' in str(val) for val in row):
-                    boq_data.columns = boq_data.iloc[idx]
+                if any(str(val).lower() == 'description' for val in row):
+                    boq_data.columns = [str(c).lower().strip() for c in boq_data.iloc[idx]]
                     boq_data = boq_data.iloc[idx + 1:].reset_index(drop=True)
                     break
             else:
                 # Fallback: assume standard order if no header found
-                cols = {0: 'Description', 1: 'Unit', 2: 'Quantity', 3: 'Rate', 4: 'Amount'}
+                cols = {0: 'description', 1: 'unit', 2: 'quantity', 3: 'rate', 4: 'amount'}
                 boq_data = boq_data.rename(columns=cols)
 
-        boq_data = boq_data.dropna(subset=['Description'])
+        # Standardize columns again just in case (e.g. if header detection found Title Case)
+        boq_data.columns = [str(col).strip().lower() for col in boq_data.columns]
+
+        if 'description' not in boq_data.columns:
+             print("Error: 'description' column not found in BOQ data.")
+             return False
+
+        boq_data = boq_data.dropna(subset=['description'])
 
         # Create lists to hold objects for bulk creation
         sections = []
@@ -47,7 +54,7 @@ def extract_boq(file_or_df, boq):
         # First pass: Identify sections, subsections, and collect item descriptions
         item_data_list = []
         for index, row in boq_data.iterrows():
-            description = str(row.get('Description', '')).strip()
+            description = str(row.get('description', '')).strip()
             if not description: continue
 
             if 'SECTION' in description:
@@ -67,7 +74,7 @@ def extract_boq(file_or_df, boq):
                         current_subsection = subsection_lookup[description]
             else:
                 if current_subsection:
-                    unit = str(row.get('Unit', '')).strip()
+                    unit = str(row.get('unit', '')).strip()
 
                     def clean_numeric(val):
                         if pd.isna(val):
@@ -81,9 +88,9 @@ def extract_boq(file_or_df, boq):
                         except ValueError:
                             return 0
 
-                    quantity = clean_numeric(row.get('Quantity'))
-                    rate = clean_numeric(row.get('Rate'))
-                    amount = clean_numeric(row.get('Amount'))
+                    quantity = clean_numeric(row.get('quantity'))
+                    rate = clean_numeric(row.get('rate'))
+                    amount = clean_numeric(row.get('amount'))
 
                     item_data_list.append({
                         'description': description,
