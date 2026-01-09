@@ -2,15 +2,14 @@ import pandas as pd
 import numpy as np
 from .models import Section, Subsection, BOQItem
 import hashlib
-from rl_engine.rl_feedback_loop import RLFeedbackHandler, DEVICE
-from rl_engine.link_boq_primavera_rl import ERC_MAP
+from planning.services.erc_model import ERCModel
 import re
-import torch
 
 
 def extract_boq(file_or_df, boq):
-    # Initialize classifier and generator
-    handler = RLFeedbackHandler()
+    # Initialize ERC Model
+    erc_model = ERCModel()
+    erc_model.load_model()
     try:
         # Extract data from the file or use provided DataFrame
         if isinstance(file_or_df, pd.DataFrame):
@@ -99,26 +98,11 @@ def extract_boq(file_or_df, boq):
         if item_data_list:
             descriptions = [item['description'] for item in item_data_list]
             
-            # Predict using RL Handler
-            with torch.no_grad():
-                embeddings = handler.sbert_model.encode(descriptions, convert_to_tensor=True).to(DEVICE)
-                handler.agent.eval()
-                outputs = handler.agent(embeddings)
-                probs = torch.softmax(outputs, dim=1)
-                confs, pred_indices = torch.max(probs, dim=1)
-            
-            predictions = [handler.idx_to_label[idx.item()] for idx in pred_indices]
+            # Predict using ERC Model
+            predictions = erc_model.predict(descriptions)
 
             for i, item_data in enumerate(item_data_list):
-                prediction_full = predictions[i]
-                
-                # Split label into parts (Category|Subcategory|Detail)
-                parts = prediction_full.split('|')
-                cats = [p for p in parts if p]
-                
-                # Map to EC Codes
-                erc_codes_list = [ERC_MAP.get(c, '') for c in cats if c in ERC_MAP]
-                erc_code = "-".join([c for c in erc_codes_list if c])
+                erc_code = predictions[i]
 
                 boq_items.append(BOQItem(
                     description=item_data['description'],

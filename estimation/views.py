@@ -38,13 +38,12 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 from io import BytesIO
 from io import BytesIO
-from rl_engine.data_processing import clean_boq_data_util, link_boq_to_primavera_util
-from rl_engine.link_boq_primavera_rl import link_boq_primavera
+from rl_engine.data_processing import clean_boq_data_util
+from rl_engine_v2.link_boq_primavera_v2 import link_boq_primavera_v2
 from .utils.data_processing import json_serial
 
-from rl_engine.apply_feedback import apply_correction
-from rl_engine.apply_bulk_feedback import apply_bulk_feedback
-from rl_engine.apply_primavera_feedback import apply_primavera_feedback
+from rl_engine_v2.rl_feedback_v2 import RLFeedbackHandler
+from rl_engine_v2.apply_feedback_v2 import apply_feedback_v2
 
 # Estimation Views
 class EstimationCreateView(APIView):
@@ -266,6 +265,7 @@ class LinkPrimavera(APIView):
                 'Item No': '',
                 'Description': section.name,
                 'Unit': '', 'Quantity': '', 'Rate': '', 'Amount': '', 
+                'BOQ ERC-code': '',
                 'BOQ_ID': section.id, 'ROW_TYPE': 'SECTION', 'DB_ID': section.id
             })
             
@@ -276,6 +276,7 @@ class LinkPrimavera(APIView):
                     'Item No': '',
                     'Description': subsection.name,
                     'Unit': '', 'Quantity': '', 'Rate': '', 'Amount': '', 
+                    'BOQ ERC-code': '',
                     'BOQ_ID': subsection.id, 'ROW_TYPE': 'SUBSECTION', 'DB_ID': subsection.id
                 })
                 
@@ -292,6 +293,7 @@ class LinkPrimavera(APIView):
                         'Quantity': item.quantity,
                         'Rate': item.rate,
                         'Amount': item.amount,
+                        'BOQ ERC-code': item.ERC_code,
                         'BOQ_ID': item.id,
                         'ROW_TYPE': row_type,
                         'DB_ID': item.id
@@ -311,9 +313,10 @@ class LinkPrimavera(APIView):
             os.makedirs(os.path.dirname(json_full_path), exist_ok=True)
             
             # Pass file paths to the new RL-based linker script
-            linked_data = link_boq_primavera(
-                boq_path=temp_boq_path, # Use the temp file with IDs
+            linked_data = link_boq_primavera_v2(
+                boq_path=temp_boq_path,
                 primavera_path=temp_prim_path,
+                output_path_csv=os.path.join(settings.MEDIA_ROOT, f'linkages/boq_prim_{boq.id}.csv'),
                 output_path_json=json_full_path
             )
 
@@ -344,7 +347,8 @@ class ApplyFeedbackView(APIView):
             return Response({'detail': 'boq_item and correct_shorthand are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            apply_correction(description, correct_shorthand)
+            handler = RLFeedbackHandler()
+            handler.update_with_feedback(description, correct_shorthand)
             return Response({'detail': 'Feedback applied successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -364,7 +368,7 @@ class ApplyBulkFeedbackView(APIView):
                 destination.write(chunk)
 
         try:
-            apply_bulk_feedback(temp_path)
+            apply_feedback_v2(temp_path)
             return Response({'detail': 'Bulk feedback applied successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -387,7 +391,17 @@ class ApplyPrimaveraFeedbackView(APIView):
                 destination.write(chunk)
 
         try:
-            apply_primavera_feedback(temp_path)
+            handler = RLFeedbackHandler()
+            # The apply_primavera_feedback in old engine probably did more?
+            # In v2, we have update_primavera_link(boq_desc, prim_id)
+            # If the CSV has multiple, we should loop.
+            df = pd.read_csv(temp_path)
+            for _, row in df.iterrows():
+                boq_desc = row.get('boq_item')
+                prim_id = row.get('primavera_id')
+                if boq_desc and prim_id:
+                    handler.update_primavera_link(boq_desc, prim_id)
+            
             return Response({'detail': 'Primavera feedback applied successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
