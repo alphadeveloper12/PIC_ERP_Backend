@@ -28,6 +28,32 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name')
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        created_by = request.user if request and request.user.is_authenticated else None
+
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
+        
+        # Create UserProfile to track creator
+        from .models import UserProfile
+        UserProfile.objects.create(user=user, created_by=created_by)
+        
+        return user
+
+
+
 class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier

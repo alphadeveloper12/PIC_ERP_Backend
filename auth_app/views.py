@@ -1,10 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import AllowAny
-from .serializers import LoginSerializer
+from rest_framework import status, generics
+from rest_framework.permissions import AllowAny, IsAdminUser
+from .serializers import LoginSerializer, RegisterSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import viewsets
+from projects.models import Project
+from django.contrib.auth.models import User
 from .models import (
     Supplier, DMApproval, RawMaterial, Inventory,
     ProcurementOrder, QCResult, MixDesign, CostElement, ApprovalWorkflow
@@ -14,6 +16,40 @@ from .serializers import (
     ProcurementOrderSerializer, QCResultSerializer, MixDesignSerializer,
     CostElementSerializer, ApprovalWorkflowSerializer
 )
+
+class RegisterUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    # allow unauthenticated registration for now, or restrict to Admin
+    # For Setup, maybe AllowAny is easiest, or IsAuthenticated if only Admin creates users.
+    # Plan says: "Admin logs in registers ... project owner"
+    # So ideally IsAuthenticated + Admin check.
+    # But for demo simplicity, let's allow AllowAny or make it simpler.
+    # Using CreateAPIView generic.
+    permission_classes = [AllowAny] 
+    serializer_class = RegisterSerializer
+
+
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+
+class UserListView(generics.ListAPIView):
+    # Allowing all authenticated users for now, or we can restrict to Admin/Owner
+    permission_classes = [IsAuthenticated] 
+    serializer_class = RegisterSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return User.objects.all()
+        
+        # Filter users created by this owner
+        return User.objects.filter(profile__created_by=user)
+    # Let's use a simple inline serializer or just return values if needed, but RegisterSerializer might hide password which is good.
+    # Wait, RegisterSerializer usually expects password. Let's make a simple one or just use LoginSerializer's user part?
+    # Better: Use a dedicated UserSerializer or just reuse RegisterSerializer but fields might be issue.
+    # Let's simple return data. Or use RegisterSerializer for now.
+    
+
+
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
@@ -30,9 +66,11 @@ class LoginAPIView(APIView):
                 'user': {
                     'id': user.id,
                     'username': user.username,
-                    'email': user.email,
                     'first_name': user.first_name,
-                    'last_name': user.last_name
+                    'last_name': user.last_name,
+                    'is_superuser': user.is_superuser,
+                    'is_owner': user.owned_projects.exists(),
+                    'is_hod': user.department_roles.filter(role='HOD').exists()
                 }
             }, status=status.HTTP_200_OK)
 

@@ -40,6 +40,10 @@ class PrimaveraSheetViewSet(viewsets.ModelViewSet):
         except SubPhase.DoesNotExist:
             return Response({"error": "SubPhase not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        # Security Check: Ensure user owns this project or is superuser
+        if not request.user.is_superuser and subphase.project.owner_user != request.user:
+            return Response({"error": "You do not have permission to upload to this project."}, status=status.HTTP_403_FORBIDDEN)
+
         # Create PrimaveraSheet
         sheet = PrimaveraSheet.objects.create(
             subphase=subphase,
@@ -52,6 +56,7 @@ class PrimaveraSheetViewSet(viewsets.ModelViewSet):
         
         try:
             result = import_primavera_data(sheet.file.path, sheet)
+            
             return Response({
                 "sheet_id": sheet.id,
                 "import_stats": result
@@ -60,19 +65,25 @@ class PrimaveraSheetViewSet(viewsets.ModelViewSet):
             # Cleanup if failed? Maybe keep the sheet record but empty?
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
+from dms.views import StandardResultsSetPagination
+
 class P6ActivityViewSet(viewsets.ModelViewSet):
     """
     CRUD API for P6Activity.
     Supports filtering by primavera_sheet ID via query param: ?primavera_sheet=1
     """
-    queryset = P6Activity.objects.all()
+    queryset = P6Activity.objects.all().order_by('activity_id')
     serializer_class = P6ActivitySerializer
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['primavera_sheet']
+    search_fields = ['activity_id', 'activity_name', 'erc_code']
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        sheet_id = self.request.query_params.get('primavera_sheet')
-        if sheet_id:
-            queryset = queryset.filter(primavera_sheet_id=sheet_id)
+        # Additional custom logic if needed, but filterset_fields handles basic sheet filtering
         return queryset
 
 

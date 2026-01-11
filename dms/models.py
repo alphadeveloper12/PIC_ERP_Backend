@@ -18,20 +18,33 @@ class UserDepartmentRole(models.Model):
         ('OFFICER', ' Officer / Team Member'),
         ('ADMIN', 'Department Admin'),
     ]
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='team_roles', null=True) # Null for migration, strictly required later
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='department_roles')
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='members')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='OFFICER')
 
     class Meta:
-        unique_together = ('user', 'department')
+        unique_together = ('user', 'department', 'project')
 
     def __str__(self):
         return f"{self.user.username} - {self.department.code} ({self.role})"
+
+class WorkflowTemplate(models.Model):
+    """
+    Defines a specific process flow (e.g., Procurement Standard, Engineering Design).
+    """
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
 
 class WorkflowPhase(models.Model):
     """
     Groups steps into phases like 'Tendering', 'Mobilization'.
     """
+    template = models.ForeignKey(WorkflowTemplate, on_delete=models.CASCADE, related_name='phases', null=True, blank=True)
     name = models.CharField(max_length=100)
     sequence = models.IntegerField(default=0)
 
@@ -57,6 +70,12 @@ class WorkflowStep(models.Model):
     receiver_department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='receiving_steps', null=True, blank=True)
     
     is_start_step = models.BooleanField(default=False, help_text="If True, this step starts a new process.")
+    
+    # Advanced Workflow
+    sla_hours = models.PositiveIntegerField(default=24, help_text="Expected time to complete this step in hours")
+    # Simple branching support: define which steps can follow this one. 
+    # If empty, default logic (next in sequence) applies.
+    next_possible_steps = models.ManyToManyField('self', blank=True, symmetrical=False, related_name='previous_steps')
 
     def __str__(self):
         return f"{self.sequence_id}: {self.actor_department.code} -> {self.receiver_department.code if self.receiver_department else 'End'}"
@@ -79,7 +98,7 @@ class Task(models.Model):
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='dms_tasks')
-    workflow_step = models.ForeignKey(WorkflowStep, on_delete=models.CASCADE)
+    workflow_step = models.ForeignKey(WorkflowStep, on_delete=models.SET_NULL, null=True, blank=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     
@@ -89,8 +108,12 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    due_date = models.DateTimeField(null=True, blank=True)
     
     comments = models.TextField(blank=True, null=True)
+    
+    # Workflow Traceability
+    parent_task = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='next_tasks')
 
     def __str__(self):
         return f"[{self.project.code}] {self.workflow_step.sequence_id} - {self.status}"
@@ -107,6 +130,37 @@ class Document(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     document_type = models.CharField(max_length=255, help_text="Matches WorkflowStep.required_document_type")
+    
+    # AI Enhancements
+    ai_summary = models.TextField(blank=True, null=True)
+    extracted_text = models.TextField(blank=True, null=True)
+    
+    class EmbeddingStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        PROCESSED = 'PROCESSED', 'Processed'
+        FAILED = 'FAILED', 'Failed'
+        
+    embedding_status = models.CharField(
+        max_length=20, 
+        choices=EmbeddingStatus.choices, 
+        default=EmbeddingStatus.PENDING
+    )
 
     def __str__(self):
         return f"{self.project.code} - {self.document_type} (v{self.version})"
+class DepartmentWorkflowMapping(models.Model):
+    """
+    Maps a department to a specific workflow template.
+    Allows for default templates per department.
+    """
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='workflow_mappings')
+    template = models.ForeignKey(WorkflowTemplate, on_delete=models.CASCADE)
+    activity_type_prefix = models.CharField(max_length=50, blank=True, null=True, help_text="Optional: Only apply if activity ID starts with this.")
+    priority = models.IntegerField(default=0, help_text="Higher priority takes precedence.")
+
+    class Meta:
+        ordering = ['-priority']
+        unique_together = ('department', 'activity_type_prefix')
+
+    def __str__(self):
+        return f"{self.department.code} -> {self.template.name}"

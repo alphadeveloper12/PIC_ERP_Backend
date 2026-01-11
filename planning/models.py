@@ -1,5 +1,6 @@
 from django.db import models
 from estimation.models import BOQItem
+from dms.models import Department, Task
 
 
 
@@ -27,7 +28,20 @@ class P6Activity(models.Model):
     late_finish = models.DateTimeField(null=True, blank=True)
     total_float = models.FloatField(null=True, blank=True)
     budgeted_total_cost = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    budgeted_total_cost = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
     owner = models.CharField(max_length=255, null=True, blank=True)
+    
+    # DMS Integration
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='p6_activities')
+    dms_task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True, blank=True, related_name='linked_p6_activity')
+    
+    actual_start = models.DateTimeField(null=True, blank=True)
+    actual_finish = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=50, default='Not Started', choices=[
+        ('Not Started', 'Not Started'),
+        ('In Progress', 'In Progress'),
+        ('Completed', 'Completed')
+    ])
 
     class Meta:
         unique_together = ('primavera_sheet', 'activity_id')

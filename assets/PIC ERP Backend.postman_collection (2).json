@@ -922,6 +922,26 @@
                                 "url": "{{base_url}}/planning/p6-activities/31/"
                             },
                             "response": []
+                        },
+                        {
+                            "name": "Import P6 Data (With Deduplication & Mapping)",
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "file",
+                                            "type": "file",
+                                            "src": ""
+                                        }
+                                    ]
+                                },
+                                "url": "{{base_url}}/planning/primavera-sheets/1/import_data/",
+                                "description": "Uploads P6 Excel file to existing sheet. Triggers deduplication, dept mapping, and DMS linking."
+                            },
+                            "response": []
                         }
                     ]
                 },
@@ -1104,6 +1124,35 @@
                             "response": []
                         }
                     ]
+                },
+                {
+                    "name": "Sync P6 Task (Approve Action)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"action\": \"APPROVE\",\n  \"comments\": \"Approved via API, should sync to P6 Actual Finish\"\n}"
+                        },
+                        "url": "{{base_url}}/dms/tasks/1/perform_action/",
+                        "description": "Approve a task. If linked to P6, this updates P6 Actual Finish."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List P6 Linked Activities",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{base_url}}/planning/p6-activities/?primavera_sheet=1",
+                        "description": "Check if activities are created and have department/dms_task set."
+                    },
+                    "response": []
                 }
             ]
         },

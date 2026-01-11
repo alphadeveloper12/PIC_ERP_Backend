@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import LoginAPIView
+from .views import LoginAPIView, RegisterUserView, UserListView
 from .views import (
     SupplierViewSet, DMApprovalViewSet, RawMaterialViewSet,
     InventoryViewSet, ProcurementOrderViewSet, QCResultViewSet,
@@ -36,6 +36,8 @@ approvalworkflow_list = ApprovalWorkflowViewSet.as_view({"get": "list", "post": 
 approvalworkflow_detail = ApprovalWorkflowViewSet.as_view({"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"})
 
 urlpatterns = [
+    path('register/', RegisterUserView.as_view(), name='register'),
+    path('users/', UserListView.as_view(), name='user-list'),
     path('login/', LoginAPIView.as_view(), name='login'),
     path("suppliers/", supplier_list, name="supplier-list"),
     path("suppliers/<int:pk>/", supplier_detail, name="supplier-detail"),

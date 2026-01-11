@@ -111,9 +111,12 @@ class ProjectListView(APIView):
     # permission_classes = [IsAuthenticated]
 
     def get(self, request, **kwargs):
-
         projects = Project.objects.all()
-
+        
+        if request.query_params.get('mode') == 'my_projects':
+            if request.user.is_authenticated and not request.user.is_superuser:
+                projects = projects.filter(owner_user=request.user)
+                
         serializer = ProjectSerializer(projects, many=True)
         return JsonResponse({
             "status": "success",

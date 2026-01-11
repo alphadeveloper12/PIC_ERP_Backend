@@ -1,6 +1,8 @@
-# projects/models.py
 from django.db import models
 from core.models import TimeStampedModel, Company
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 class ProjectState(models.TextChoices):
@@ -29,7 +31,8 @@ class Project(models.Model):
         on_delete=models.CASCADE,
         related_name="projects",
     )
-    owner = models.CharField(max_length=255, null=True, blank=True)
+    owner = models.CharField(max_length=255, null=True, blank=True) # Legacy string field
+    owner_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='owned_projects')
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     location = models.CharField(max_length=255, blank=True, null=True)

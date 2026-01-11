@@ -321,6 +321,7 @@ class LinkPrimavera(APIView):
             )
 
             # 5. Update BOQ model
+            # 5. Update BOQ model
             json_url = request.build_absolute_uri(settings.MEDIA_URL + json_relative_path)
             boq.primavera_linkage = json_url
             boq.save()
