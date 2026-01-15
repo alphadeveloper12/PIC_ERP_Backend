@@ -4,10 +4,12 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProjectSetup from './pages/admin/ProjectSetup';
 import TeamManagement from './pages/owner/TeamManagement';
+import TeamPerformance from './pages/owner/TeamPerformance';
 import TaskDashboard from './pages/dms/TaskDashboard';
-import PrimaveraUpload from './pages/planning/PrimaveraUpload';
-import P6ActivityManagement from './pages/planning/P6ActivityManagement';
+import PermissionsManager from './pages/owner/PermissionsManager';
 import UserManagement from './pages/admin/UserManagement';
+import PlanningHub from './pages/planning/PlanningHub';
+import TaskDetail from './pages/dms/TaskDetail';
 import { useAuthStore } from './hooks/useAuthStore';
 import React from 'react';
 
@@ -32,6 +34,13 @@ const AdminProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/" replace />; // Redirect non-admins to dashboard
   }
 
+  return children;
+};
+
+const OwnerProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { token, user } = useAuthStore();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!user?.is_superuser && !user?.is_owner) return <Navigate to="/" replace />;
   return children;
 };
 
@@ -65,16 +74,28 @@ const router = createBrowserRouter([
         element: <TeamManagement />,
       },
       {
+        path: 'team/performance',
+        element: <TeamPerformance />,
+      },
+      {
+        path: 'permissions',
+        element: (
+          <OwnerProtectedRoute>
+            <PermissionsManager />
+          </OwnerProtectedRoute>
+        ),
+      },
+      {
         path: 'dms',
         element: <TaskDashboard />,
       },
       {
-        path: 'planning/upload',
-        element: <PrimaveraUpload />,
+        path: 'dms/tasks/:id',
+        element: <TaskDetail />,
       },
       {
-        path: 'planning/activities',
-        element: <P6ActivityManagement />,
+        path: 'planning',
+        element: <PlanningHub />,
       },
       {
         path: 'users',

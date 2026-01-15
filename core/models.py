@@ -145,11 +145,17 @@ class Employee(TimeStampedModel):
 # PERMISSIONS / RBAC
 # ---------------------------------------------------------------------
 class Permission(TimeStampedModel):
+    CATEGORY_CHOICES = [
+        ('GENERAL', 'General'),
+        ('DEPARTMENTAL', 'Departmental'),
+        ('ADMINISTRATIVE', 'Administrative'),
+    ]
     code = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=255)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='GENERAL')
 
     def __str__(self) -> str:
-        return self.code
+        return f"[{self.category}] {self.code}"
 
 
 class Role(TimeStampedModel):

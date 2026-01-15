@@ -1,21 +1,37 @@
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Department, Task, Document, WorkflowStep
-from .models import Department, Task, Document, WorkflowStep, UserDepartmentRole
+from .models import Department, Task, Document, WorkflowStep, UserDepartmentRole, AccessPolicy
 from .serializers import (
     DepartmentSerializer, TaskSerializer, DocumentSerializer, 
-    TaskActionSerializer, UserDepartmentRoleSerializer
+    TaskActionSerializer, UserDepartmentRoleSerializer, AccessPolicySerializer
 )
 from .services import WorkflowEngine, DocumentService
+from .permissions import HasRequiredPermission
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F
+from projects.models import Project
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return Department.objects.all()
+        
+        # Project Owners see all departments to seed them
+        if Project.objects.filter(owner_user=user).exists():
+            return Department.objects.all()
+            
+        # Others (HODs) only see departments they are part of as HOD or ADMIN
+        return Department.objects.filter(
+            members__user=user, 
+            members__role__in=['HOD', 'ADMIN']
+        ).distinct()
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -30,7 +46,8 @@ class ProjectTeamViewSet(viewsets.ModelViewSet):
     """
     queryset = UserDepartmentRole.objects.all()
     serializer_class = UserDepartmentRoleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasRequiredPermission]
+    required_permission = 'manage_team'
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__username', 'department__name', 'department__code']
@@ -40,9 +57,12 @@ class ProjectTeamViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         # Superuser sees everything. 
-        # Others only see teams for projects they own.
+        # Others see teams for projects they own OR departments where they are HOD.
         if not user.is_superuser:
-            qs = qs.filter(project__owner_user=user)
+            qs = qs.filter(
+                Q(project__owner_user=user) | 
+                Q(department__members__user=user, department__members__role='HOD', department__members__project=F('project'))
+            ).distinct()
 
         department_id = self.request.query_params.get('department_id')
         project_id = self.request.query_params.get('project_id')
@@ -54,6 +74,74 @@ class ProjectTeamViewSet(viewsets.ModelViewSet):
             
         return qs
 
+    @action(detail=False, methods=['GET'])
+    def performance(self, request):
+        user = request.user
+        project_id = request.query_params.get('project_id')
+        
+        # Get departments where user is HOD
+        hod_departments = UserDepartmentRole.objects.filter(
+            user=user, role='HOD'
+        ).values_list('department_id', flat=True)
+        
+        if not hod_departments and not user.is_superuser:
+            return Response({"error": "You do not have HOD access to view performance."}, status=403)
+
+        # Filter tasks
+        tasks = Task.objects.filter(status='APPROVED', assigned_to__isnull=False)
+        if project_id:
+            tasks = tasks.filter(project_id=project_id)
+        
+        if not user.is_superuser:
+            tasks = tasks.filter(workflow_step__actor_department_id__in=hod_departments)
+
+        from planning.models import P6Activity
+        
+        performance_data = []
+        
+        # Aggregate by user
+        assigned_users = tasks.values(
+            'assigned_to', 
+            'assigned_to__username', 
+            'assigned_to__first_name', 
+            'assigned_to__last_name'
+        ).distinct()
+        
+        for u in assigned_users:
+            user_tasks = tasks.filter(assigned_to_id=u['assigned_to'])
+            total_completed = user_tasks.count()
+            
+            efficiency_days = 0
+            tasks_with_p6 = 0
+            
+            for t in user_tasks:
+                # Find linked P6 activity
+                p6 = P6Activity.objects.filter(dms_task=t).first()
+                if p6 and p6.early_finish and t.completed_at:
+                    diff = (p6.early_finish - t.completed_at).days
+                    efficiency_days += diff
+                    tasks_with_p6 += 1
+            
+            kpi_score = (total_completed * 10) + (max(0, efficiency_days) * 5)
+            
+            performance_data.append({
+                "user_id": u['assigned_to'],
+                "username": u['assigned_to__username'],
+                "full_name": f"{u['assigned_to__first_name']} {u['assigned_to__last_name']}",
+                "tasks_completed": total_completed,
+                "efficiency_days": efficiency_days,
+                "tasks_with_p6": tasks_with_p6,
+                "kpi_score": kpi_score
+            })
+
+        # Sort by KPI score
+        performance_data = sorted(performance_data, key=lambda x: x['kpi_score'], reverse=True)
+
+        return Response({
+            "status": "success",
+            "data": performance_data
+        })
+
 
 class TaskViewSet(viewsets.ModelViewSet):
     """
@@ -62,7 +150,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     """
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasRequiredPermission]
+    required_permission = 'view_tasks'
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['project__name', 'workflow_step__action_description']
     ordering_fields = ['created_at', 'status', 'project__code']
@@ -126,6 +215,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         comments = serializer.validated_data.get('comments', '')
         assignee = serializer.validated_data.get('assigned_to')
 
+        if action_type == 'REJECT' and not comments:
+            return Response({'error': 'Remarks are required when rejecting a task.'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             updated_task = WorkflowEngine.transition_task(
                 task=task,
@@ -159,7 +251,8 @@ class TaskViewSet(viewsets.ModelViewSet):
 class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasRequiredPermission]
+    required_permission = 'submit_tasks'
 
     def perform_create(self, serializer):
         # We manually handle creation to use DocumentService
@@ -197,9 +290,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         # Re-reading my plan: "DocumentService: upload_document(file, task) -> Saves file, triggers async AI processing."
         # If I want to stick to the plan:
-        # I should override create() logic.
-        pass
-
     def create(self, request, *args, **kwargs):
         # Override create to use Service
         serializer = self.get_serializer(data=request.data)
@@ -217,3 +307,32 @@ class DocumentViewSet(viewsets.ModelViewSet):
         )
         
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
+
+class AccessPolicyViewSet(viewsets.ModelViewSet):
+    queryset = AccessPolicy.objects.all().select_related('department', 'project')
+    serializer_class = AccessPolicySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        
+        # Security: Non-superusers only see policies for:
+        # 1. Projects they own
+        # 2. Global templates (project=None)
+        if not user.is_superuser:
+            qs = qs.filter(Q(project__owner_user=user) | Q(project__isnull=True))
+
+        project_id = self.request.query_params.get('project_id')
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+             
+        return qs.order_by('department__name', 'role')
+
+    def get_permissions(self):
+        # We allow viewing for authenticated, but mutation only for high-privilege
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), HasRequiredPermission()]
+        return super().get_permissions()
+
+    required_permission = 'manage_projects' # Project Owner permission

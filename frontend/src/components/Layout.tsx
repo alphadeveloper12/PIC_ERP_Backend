@@ -6,15 +6,15 @@ import {
     LogOut,
     LayoutDashboard,
     Users,
-    Settings,
     FolderOpen,
     FileText,
     Menu,
-    Upload,
-    Database,
+    ShieldCheck,
+    CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
+import { usePermissions } from "@/lib/permissions";
 
 interface SidebarItemProps {
     icon: React.ElementType;
@@ -40,6 +40,7 @@ function SidebarItem({ icon: Icon, label, href, active }: SidebarItemProps) {
 
 export function Layout() {
     const { logout, user } = useAuthStore();
+    const { hasAnyPermission } = usePermissions();
     const location = useLocation();
     const navigate = useNavigate();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -49,24 +50,54 @@ export function Layout() {
         navigate("/login");
     };
 
-    // Determine navigation items based on generic role or just show all for demo
-    // In a real app, filter based on user.role
-    // Filter navigation items based on user role
-    const navItems = [
+    // Filter navigation items based on user permissions
+    const allNavItems = [
         { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-        { icon: FileText, label: "Tasks", href: "/dms" },
-        { icon: Users, label: "Team", href: "/team" },
-        { icon: Upload, label: "Upload P6", href: "/planning/upload" },
-        { icon: Database, label: "P6 Activities", href: "/planning/activities" },
+        {
+            icon: FileText,
+            label: "Tasks",
+            href: "/dms",
+            requiredPermission: ['approve_tasks', 'submit_tasks', 'view_tasks']
+        },
+        {
+            icon: Users,
+            label: "Team",
+            href: "/team",
+            requiredPermission: ['manage_team', 'view_team', 'manage_project_owner']
+        },
+        {
+            icon: CalendarDays,
+            label: "Planning",
+            href: "/planning",
+            requiredPermission: ['manage_planning', 'view_planning']
+        },
+        {
+            icon: FolderOpen,
+            label: "Projects",
+            href: "/projects",
+            requiredPermission: ['manage_projects']
+        },
+        {
+            icon: Users,
+            label: "Users (Admin)",
+            href: "/users",
+            requiredPermission: ['manage_users', 'superuser']
+        },
+        {
+            icon: ShieldCheck,
+            label: "Permissions",
+            href: "/permissions",
+            requiredPermission: ['manage_projects']
+        }
     ];
 
-    // Admin-only items
-    if (user?.is_superuser) {
-        navItems.push(
-            { icon: FolderOpen, label: "Projects", href: "/projects" },
-            { icon: Users, label: "Users (Admin)", href: "/users" }
-        );
-    }
+    const navItems = allNavItems.filter(item => {
+        if (!item.requiredPermission) return true;
+        // Superusers and Project Owners see all sidebar items
+        if (user?.is_superuser || user?.is_owner) return true;
+
+        return hasAnyPermission(item.requiredPermission);
+    });
 
     return (
         <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '@/services/api';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { toast } from 'sonner';
+import { toast } from "sonner";
+import { usePermissions } from "@/lib/permissions";
 
 interface Document {
     id: number;
@@ -83,6 +85,7 @@ interface Project {
 
 export default function TaskDashboard() {
     const { user } = useAuthStore();
+    const { hasPermission } = usePermissions();
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -120,7 +123,7 @@ export default function TaskDashboard() {
 
     const fetchMeta = async () => {
         try {
-            const projRes = await api.get('/api/project/list?mode=my_projects');
+            const projRes = await api.get('/api/projects/?mode=my_projects');
             setProjects(projRes.data.data);
 
             // Global team for creation modal (HOD view)
@@ -368,8 +371,10 @@ export default function TaskDashboard() {
                                                 {task.status}
                                             </span>
                                         </div>
-                                        <h3 className="text-lg font-extrabold mt-2">
-                                            {task.p6_activity_name || task.workflow_step_details?.action_description || "Custom Assignment"}
+                                        <h3 className="text-lg font-extrabold mt-2 hover:text-primary transition-colors cursor-pointer">
+                                            <Link to={`/dms/tasks/${task.id}`}>
+                                                {task.p6_activity_name || task.workflow_step_details?.action_description || "Custom Assignment"}
+                                            </Link>
                                         </h3>
                                         <p className="text-sm text-muted-foreground">
                                             {task.p6_activity_name ? `Workflow Step: ${task.workflow_step_details?.action_description}` : task.workflow_step_details?.sequence_id ? `Workflow ID: ${task.workflow_step_details.sequence_id}` : "Manual Control"}
@@ -381,14 +386,24 @@ export default function TaskDashboard() {
                                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Created</p>
                                             <p className="text-sm font-medium">{new Date(task.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                         </div>
-                                        <Button
-                                            variant={expandedTask === task.id ? "default" : "outline"}
-                                            size="sm"
-                                            className="font-bold border-2"
-                                            onClick={() => handleExpand(task)}
-                                        >
-                                            Manage <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${expandedTask === task.id ? 'rotate-180' : ''}`} />
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="font-bold border-2"
+                                                asChild
+                                            >
+                                                <Link to={`/dms/tasks/${task.id}`}>Workspace</Link>
+                                            </Button>
+                                            <Button
+                                                variant={expandedTask === task.id ? "default" : "outline"}
+                                                size="sm"
+                                                className="font-bold border-2"
+                                                onClick={() => handleExpand(task)}
+                                            >
+                                                Quick Actions <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${expandedTask === task.id ? 'rotate-180' : ''}`} />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -464,16 +479,20 @@ export default function TaskDashboard() {
                                                                 ))}
                                                             </select>
                                                         </div>
-                                                        <Button size="sm" variant="outline" className="h-9 rounded-md border-2 font-bold" onClick={() => handleAction(task.id, 'ASSIGN')} disabled={!assigneeId}>
-                                                            <UserPlus className="mr-2 h-4 w-4" /> Re-assign
-                                                        </Button>
-                                                        <div className="w-[2px] bg-muted h-9 mx-2 hidden sm:block" />
-                                                        <Button size="sm" className="h-9 rounded-md font-bold bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20" onClick={() => handleAction(task.id, 'APPROVE')}>
-                                                            <Check className="mr-2 h-4 w-4" /> Final Approve
-                                                        </Button>
-                                                        <Button size="sm" variant="destructive" className="h-9 rounded-md font-bold shadow-lg shadow-red-600/20" onClick={() => handleAction(task.id, 'REJECT')}>
-                                                            Reject
-                                                        </Button>
+                                                        {hasPermission('approve_tasks', task.project) && (
+                                                            <>
+                                                                <Button size="sm" variant="outline" className="h-9 rounded-md border-2 font-bold" onClick={() => handleAction(task.id, 'ASSIGN')} disabled={!assigneeId}>
+                                                                    <UserPlus className="mr-2 h-4 w-4" /> Re-assign
+                                                                </Button>
+                                                                <div className="w-[2px] bg-muted h-9 mx-2 hidden sm:block" />
+                                                                <Button size="sm" className="h-9 rounded-md font-bold bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20" onClick={() => handleAction(task.id, 'APPROVE')}>
+                                                                    <Check className="mr-2 h-4 w-4" /> Final Approve
+                                                                </Button>
+                                                                <Button size="sm" variant="destructive" className="h-9 rounded-md font-bold shadow-lg shadow-red-600/20" onClick={() => handleAction(task.id, 'REJECT')}>
+                                                                    Reject
+                                                                </Button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-wrap items-end gap-3 w-full">
@@ -493,12 +512,16 @@ export default function TaskDashboard() {
                                                             </div>
                                                         </div>
                                                         <div className="flex gap-2">
-                                                            <Button size="sm" variant="outline" className="h-9 font-bold border-2" onClick={() => handleAction(task.id, 'START')} disabled={task.status === 'IN_PROGRESS'}>
-                                                                <Play className="mr-2 h-4 w-4" /> Mark as Started
-                                                            </Button>
-                                                            <Button size="sm" className="h-9 font-bold shadow-lg shadow-primary/20" onClick={() => handleAction(task.id, 'SUBMIT')}>
-                                                                Submit for Review
-                                                            </Button>
+                                                            {hasPermission('submit_tasks') && (
+                                                                <>
+                                                                    <Button size="sm" variant="outline" className="h-9 font-bold border-2" onClick={() => handleAction(task.id, 'START')} disabled={task.status === 'IN_PROGRESS'}>
+                                                                        <Play className="mr-2 h-4 w-4" /> Mark as Started
+                                                                    </Button>
+                                                                    <Button size="sm" className="h-9 font-bold shadow-lg shadow-primary/20" onClick={() => handleAction(task.id, 'SUBMIT')}>
+                                                                        Submit for Review
+                                                                    </Button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 )}

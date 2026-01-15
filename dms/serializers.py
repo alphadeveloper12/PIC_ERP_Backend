@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Department, WorkflowPhase, WorkflowStep, Task, Document, UserDepartmentRole
+from .models import Department, WorkflowPhase, WorkflowStep, Task, Document, UserDepartmentRole, AccessPolicy
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -92,3 +92,12 @@ class TaskActionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=['ASSIGN', 'APPROVE', 'REJECT', 'SUBMIT', 'START'])
     assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
     comments = serializers.CharField(required=False, allow_blank=True)
+
+class AccessPolicySerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    department_code = serializers.CharField(source='department.code', read_only=True)
+    project_code = serializers.CharField(source='project.code', read_only=True)
+    
+    class Meta:
+        model = AccessPolicy
+        fields = '__all__'

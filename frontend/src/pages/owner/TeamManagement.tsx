@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
+import { cn } from "@/lib/utils";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Plus, Users, UserPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Users, UserPlus, Trophy, LayoutDashboard } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/hooks/useAuthStore';
 
 interface Department {
@@ -27,6 +29,7 @@ interface UserRole {
 }
 
 export default function TeamManagement() {
+    const navigate = useNavigate();
     const { register } = useAuthStore();
     const [team, setTeam] = useState<UserRole[]>([]);
     const [totalTeam, setTotalTeam] = useState(0);
@@ -41,7 +44,7 @@ export default function TeamManagement() {
     const [showAssignForm, setShowAssignForm] = useState(false);
 
     const [users, setUsers] = useState<any[]>([]);
-    const [assignment, setAssignment] = useState({ user_id: '', department_id: '', role: 'MEMBER' });
+    const [assignment, setAssignment] = useState({ user_id: '', department_id: '', role: 'OFFICER' });
 
     // Forms
     const [newUser, setNewUser] = useState({ username: '', email: '', password: '', first_name: '', last_name: '' });
@@ -57,7 +60,7 @@ export default function TeamManagement() {
 
     const fetchProjects = async () => {
         try {
-            const res = await api.get('/api/project/list?mode=my_projects');
+            const res = await api.get('/api/projects/?mode=my_projects');
             setProjects(res.data.data);
             if (res.data.data.length > 0) {
                 setSelectedProject(res.data.data[0].id.toString());
@@ -67,13 +70,19 @@ export default function TeamManagement() {
         }
     };
 
+    const fetchDepartments = async () => {
+        try {
+            const depsRes = await api.get('/dms/departments/');
+            setDepartments(depsRes.data);
+        } catch (e) {
+            console.error("Failed to fetch departments", e);
+        }
+    };
+
     const fetchData = async () => {
         if (!selectedProject) return;
         setLoading(true);
         try {
-            const depsRes = await api.get('/dms/departments/');
-            setDepartments(depsRes.data);
-
             const teamRes = await api.get(`/dms/team/?project_id=${selectedProject}&page=${page}`);
             setTeam(teamRes.data.results);
             setTotalTeam(teamRes.data.count);
@@ -87,6 +96,7 @@ export default function TeamManagement() {
     useEffect(() => {
         fetchProjects();
         fetchUsers();
+        fetchDepartments();
     }, []);
 
     useEffect(() => {
@@ -131,7 +141,7 @@ export default function TeamManagement() {
             });
             alert('Assigned successfully!');
             setShowAssignForm(false);
-            setAssignment({ user_id: '', department_id: '', role: 'MEMBER' });
+            setAssignment({ user_id: '', department_id: '', role: 'OFFICER' });
             fetchData();
         } catch (e) {
             console.error(e);
@@ -160,6 +170,12 @@ export default function TeamManagement() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <Button
+                        className="gap-2 bg-yellow-500 hover:bg-yellow-600 border-none shadow-lg shadow-yellow-100"
+                        onClick={() => navigate('/team/performance')}
+                    >
+                        <Trophy className="h-4 w-4" /> Performance
+                    </Button>
                     <Button variant="outline" onClick={() => setShowUserForm(!showUserForm)}>
                         <UserPlus className="mr-2 h-4 w-4" /> Register Person
                     </Button>
@@ -238,10 +254,9 @@ export default function TeamManagement() {
                                     value={assignment.role}
                                     onChange={e => setAssignment({ ...assignment, role: e.target.value })}
                                 >
-                                    <option value="MEMBER">Member</option>
-                                    <option value="HOD">HOD</option>
-                                    <option value="MANAGER">Manager</option>
-                                    <option value="PLANNER">Planner</option>
+                                    <option value="OFFICER">Officer / Team Member</option>
+                                    <option value="HOD">Head of Department</option>
+                                    <option value="ADMIN">Department Admin</option>
                                 </select>
                             </div>
                             <Button type="submit">Assign to Project</Button>
@@ -283,8 +298,15 @@ export default function TeamManagement() {
                                         </div>
                                         <div className="flex flex-col items-end">
                                             <div className="flex items-center gap-2">
-                                                <div className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
-                                                    {member.role}
+                                                <div className={cn(
+                                                    "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                                    member.role === 'HOD' ? "bg-red-100 text-red-700" :
+                                                        member.role === 'ADMIN' ? "bg-blue-100 text-blue-700" :
+                                                            "bg-primary/10 text-primary"
+                                                )}>
+                                                    {member.role === 'OFFICER' ? 'Officer / Member' :
+                                                        member.role === 'HOD' ? 'Dept Head (HOD)' :
+                                                            member.role === 'ADMIN' ? 'Dept Admin' : member.role}
                                                 </div>
                                             </div>
                                             <span className="text-sm font-medium mt-1">{member.department_code}</span>

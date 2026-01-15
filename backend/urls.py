@@ -11,6 +11,7 @@ urlpatterns = [
     path('planning/', include('planning.urls')),  # Excel/Bill of Quantities endpoints
     path('api/', include('api.urls')),  # Excel/Bill of Quantities endpoints
     path("core/", include("core.urls", namespace="core")),
+    path('api/projects/', include('projects.urls')),
     path('dms/', include('dms.urls')),
     path('contracts/', include('contracts.urls')),
 

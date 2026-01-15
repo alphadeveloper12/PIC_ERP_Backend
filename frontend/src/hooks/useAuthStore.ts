@@ -8,8 +8,18 @@ interface User {
     first_name: string;
     last_name: string;
     is_superuser: boolean;
-    is_owner?: boolean;
+    is_owner: boolean;
+    owned_project_ids: number[];
     is_hod?: boolean;
+    department_roles?: Array<{
+        project_id: number;
+        project_name: string;
+        department_code: string;
+        department_name: string;
+        role: string;
+        permissions: string[];
+    }>;
+    permissions?: string[];
 }
 
 interface AuthState {

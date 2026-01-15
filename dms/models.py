@@ -29,6 +29,25 @@ class UserDepartmentRole(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.department.code} ({self.role})"
 
+class AccessPolicy(models.Model):
+    """
+    Defines permissions for each role within a department, scoped to a project.
+    """
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='access_policies', null=True)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='access_policies')
+    role = models.CharField(max_length=20, choices=UserDepartmentRole.ROLE_CHOICES)
+    permissions = models.JSONField(
+        default=list, 
+        help_text="List of permission codes (e.g. ['view_procurement', 'approve_tasks'])"
+    )
+
+    class Meta:
+        unique_together = ('project', 'department', 'role')
+
+    def __str__(self):
+        proj_code = self.project.code if self.project else "Global"
+        return f"[{proj_code}] {self.department.code} - {self.role} Policy"
+
 class WorkflowTemplate(models.Model):
     """
     Defines a specific process flow (e.g., Procurement Standard, Engineering Design).

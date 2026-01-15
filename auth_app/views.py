@@ -60,6 +60,31 @@ class LoginAPIView(APIView):
             user = serializer.validated_data['user']
             refresh = RefreshToken.for_user(user)
 
+            # Fetch all roles and permissions
+            from dms.models import UserDepartmentRole, AccessPolicy
+            roles_data = []
+            all_perms = set()
+            
+            # Superusers logically have all access, but we can explicitly flag it
+            if user.is_superuser:
+                all_perms.add('superuser')
+
+            user_roles = UserDepartmentRole.objects.filter(user=user).select_related('department', 'project')
+            for ur in user_roles:
+                # Find policy for this dept/role
+                policy = AccessPolicy.objects.filter(department=ur.department, role=ur.role).first()
+                perms = policy.permissions if policy else []
+                
+                roles_data.append({
+                    'project_id': ur.project.id if ur.project else None,
+                    'project_name': ur.project.name if ur.project else 'Global',
+                    'department_code': ur.department.code,
+                    'department_name': ur.department.name,
+                    'role': ur.role,
+                    'permissions': perms
+                })
+                all_perms.update(perms)
+
             return Response({
                 'token': str(refresh.access_token),
                 'refresh': str(refresh),
@@ -70,7 +95,10 @@ class LoginAPIView(APIView):
                     'last_name': user.last_name,
                     'is_superuser': user.is_superuser,
                     'is_owner': user.owned_projects.exists(),
-                    'is_hod': user.department_roles.filter(role='HOD').exists()
+                    'owned_project_ids': list(user.owned_projects.values_list('id', flat=True)),
+                    'is_hod': user.department_roles.filter(role='HOD').exists(),
+                    'department_roles': roles_data,
+                    'permissions': list(all_perms)
                 }
             }, status=status.HTTP_200_OK)
 

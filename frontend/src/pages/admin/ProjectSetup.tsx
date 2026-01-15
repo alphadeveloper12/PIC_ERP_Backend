@@ -60,7 +60,7 @@ export default function ProjectSetup() {
     const fetchProjects = async () => {
         try {
             setLoading(true);
-            const res = await api.get('/api/project/list');
+            const res = await api.get('/api/projects/');
             // The API returns { status: "success", data: [...] } based on views.py
             setProjects(res.data.data);
         } catch (err) {
@@ -90,7 +90,7 @@ export default function ProjectSetup() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.post('/api/project/create', formData);
+            await api.post('/api/projects/create/', formData);
             setShowForm(false);
             fetchProjects();
             setFormData({ ...formData, name: '', code: '', owner_user: '' });

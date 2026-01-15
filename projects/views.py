@@ -4,17 +4,25 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
+from django.db.models import Q
 from .models import Project, SubPhase, Company
 from .serializers import ProjectSerializer, SubPhaseSerializer, CompanySerializer
 
 
 class ProjectCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, **kwargs):
         print("Received data:", request.data)
         try:
             serializer = ProjectSerializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                project = serializer.save()
+                
+                # Auto-initialize project-specific permissions
+                from dms.utils import initialize_project_permissions
+                initialize_project_permissions(project)
+                
                 return JsonResponse({
                     "status": "success",
                     "message": "Project created successfully",
@@ -48,8 +56,7 @@ class ProjectCreateView(APIView):
 
 
 class ProjectUpdateView(APIView):
-    # authentication_classes = [TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def put(self, request, pk, **kwargs):
         try:
@@ -85,8 +92,7 @@ class ProjectUpdateView(APIView):
 
 
 class ProjectDetailView(APIView):
-    # authentication_classes = [TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, **kwargs):
         try:
@@ -107,15 +113,18 @@ class ProjectDetailView(APIView):
 
 
 class ProjectListView(APIView):
-    # authentication_classes = [TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, **kwargs):
         projects = Project.objects.all()
         
-        if request.query_params.get('mode') == 'my_projects':
-            if request.user.is_authenticated and not request.user.is_superuser:
-                projects = projects.filter(owner_user=request.user)
+        # Superuser sees all.
+        # Others see projects they own OR projects where they have a department role.
+        if not request.user.is_superuser:
+            projects = projects.filter(
+                Q(owner_user=request.user) | 
+                Q(team_roles__user=request.user)
+            ).distinct()
                 
         serializer = ProjectSerializer(projects, many=True)
         return JsonResponse({
@@ -127,8 +136,7 @@ class ProjectListView(APIView):
 
 # SubPhase Views
 class SubPhaseCreateView(APIView):
-    # authentication_classes = [TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, **kwargs):
         try:
@@ -155,8 +163,7 @@ class SubPhaseCreateView(APIView):
 
 
 class SubPhaseListView(APIView):
-    # authentication_classes = [TokenAuthentication]
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, **kwargs):
         try:

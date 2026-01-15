@@ -8,6 +8,8 @@ from .models import P6Activity, MappingResult, PrimaveraSheet
 from .serializers import P6ActivitySerializer, PrimaveraSheetSerializer
 from .utils import import_primavera_data
 from rest_framework import viewsets, status
+from dms.permissions import HasRequiredPermission
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -21,6 +23,8 @@ import tempfile
 class PrimaveraSheetViewSet(viewsets.ModelViewSet):
     queryset = PrimaveraSheet.objects.all()
     serializer_class = PrimaveraSheetSerializer
+    permission_classes = [IsAuthenticated, HasRequiredPermission]
+    required_permission = 'manage_planning'
 
     @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
     def import_data(self, request):
@@ -76,6 +80,8 @@ class P6ActivityViewSet(viewsets.ModelViewSet):
     """
     queryset = P6Activity.objects.all().order_by('activity_id')
     serializer_class = P6ActivitySerializer
+    permission_classes = [IsAuthenticated, HasRequiredPermission]
+    required_permission = 'view_planning'
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['primavera_sheet']
@@ -83,7 +89,12 @@ class P6ActivityViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Additional custom logic if needed, but filterset_fields handles basic sheet filtering
+        user = self.request.user
+        
+        # Security: Filter by project ownership
+        if not user.is_superuser:
+            queryset = queryset.filter(primavera_sheet__subphase__project__owner_user=user)
+            
         return queryset
 
 
