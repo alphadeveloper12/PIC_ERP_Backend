@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import LoginAPIView, RegisterUserView, UserListView
+from .views import LoginAPIView, RegisterUserView, UserListView, CurrentUserView
+
 from .views import (
     SupplierViewSet, DMApprovalViewSet, RawMaterialViewSet,
     InventoryViewSet, ProcurementOrderViewSet, QCResultViewSet,
@@ -39,6 +40,7 @@ urlpatterns = [
     path('register/', RegisterUserView.as_view(), name='register'),
     path('users/', UserListView.as_view(), name='user-list'),
     path('login/', LoginAPIView.as_view(), name='login'),
+    path('me/', CurrentUserView.as_view(), name='current-user'),
     path("suppliers/", supplier_list, name="supplier-list"),
     path("suppliers/<int:pk>/", supplier_detail, name="supplier-detail"),
 

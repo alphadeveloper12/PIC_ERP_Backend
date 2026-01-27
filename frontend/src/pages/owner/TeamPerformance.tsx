@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,13 +38,18 @@ export default function TeamPerformance() {
     const [performance, setPerformance] = useState<PerformanceMetric[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [selectedProject, setSelectedProject] = useState<string>('');
+    const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth() + 1 + '');
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear() + '');
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
         setLoading(true);
         try {
+            let url = `/dms/team/performance/?month=${selectedMonth}&year=${selectedYear}`;
+            if (selectedProject) url += `&project_id=${selectedProject}`;
+
             const [perfRes, projRes] = await Promise.all([
-                api.get(`/dms/team/performance/${selectedProject ? `?project_id=${selectedProject}` : ''}`),
+                api.get(url),
                 api.get('/api/projects/?mode=my_projects')
             ]);
             setPerformance(perfRes.data.data);
@@ -59,7 +64,7 @@ export default function TeamPerformance() {
 
     useEffect(() => {
         fetchData();
-    }, [selectedProject]);
+    }, [selectedProject, selectedMonth, selectedYear]);
 
     if (loading && performance.length === 0) return <Loading fullPage message="Calculating Team KPIs..." />;
 
@@ -78,78 +83,106 @@ export default function TeamPerformance() {
                     <ArrowLeft className="h-4 w-4" /> Back to Team Management
                 </Button>
 
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 erp-header">
                     <div className="space-y-1">
-                        <h1 className="text-4xl font-black tracking-tight text-foreground flex items-center gap-3">
-                            <Trophy className="h-10 w-10 text-yellow-500" /> Team Performance
+                        <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
+                            <Trophy className="h-8 w-8 text-yellow-500" /> Team Performance
                         </h1>
-                        <p className="text-muted-foreground font-medium">
+                        <p className="text-sm font-bold text-muted-foreground italic pl-11">
                             Real-time efficiency tracking and KPI leaderboard based on P6 schedules.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-muted/30 p-2 rounded-xl border border-primary/5">
-                        <Target className="h-4 w-4 text-primary ml-2" />
-                        <select
-                            value={selectedProject}
-                            onChange={(e) => setSelectedProject(e.target.value)}
-                            className="bg-transparent border-none text-sm font-bold focus:ring-0 cursor-pointer min-w-[200px]"
-                        >
-                            <option value="">All Projects</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>[{p.code}] {p.name}</option>
-                            ))}
-                        </select>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-xl border border-primary/5">
+                            <span className="text-[10px] uppercase font-black text-muted-foreground ml-2">Month</span>
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="bg-transparent border-none text-sm font-bold focus:ring-0 cursor-pointer"
+                            >
+                                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+                                    <option key={m} value={i + 1}>{m}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-xl border border-primary/5">
+                            <span className="text-[10px] uppercase font-black text-muted-foreground ml-2">Year</span>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(e.target.value)}
+                                className="bg-transparent border-none text-sm font-bold focus:ring-0 cursor-pointer"
+                            >
+                                {[2024, 2025, 2026].map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-xl border border-primary/5">
+                            <Target className="h-4 w-4 text-primary ml-2" />
+                            <select
+                                value={selectedProject}
+                                onChange={(e) => setSelectedProject(e.target.value)}
+                                className="bg-transparent border-none text-sm font-bold focus:ring-0 cursor-pointer min-w-[200px]"
+                            >
+                                <option value="">All Projects</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>[{p.code}] {p.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Top Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200 shadow-sm relative overflow-hidden group">
+                <Card className="erp-card bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200/50 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-10 scale-150 rotate-12 transition-transform group-hover:scale-[2] duration-700">
                         <Star className="h-20 w-20 text-yellow-500" />
                     </div>
                     <CardHeader className="pb-2 relative">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest text-yellow-700">Current MVP</CardTitle>
+                        <CardTitle className="text-[10px] font-black uppercase tracking-widest text-yellow-700 dark:text-yellow-500">Current MVP</CardTitle>
                     </CardHeader>
                     <CardContent className="relative">
-                        <p className="text-2xl font-black text-yellow-900">{topPerformer?.full_name || "N/A"}</p>
+                        <p className="text-2xl font-black text-yellow-900 dark:text-yellow-100">{topPerformer?.full_name || "N/A"}</p>
                         <div className="flex items-center gap-2 mt-2">
-                            <div className="bg-yellow-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                            <div className="bg-yellow-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-yellow-500/20 uppercase tracking-widest">
                                 {topPerformer?.kpi_score || 0} KPI Points
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-primary/5 shadow-sm bg-primary/5">
+                <Card className="erp-card border-primary/5 shadow-sm bg-card ring-1 ring-primary/5">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest text-primary">Department Velocity</CardTitle>
+                        <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary/60">Department Velocity</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-baseline gap-2">
                             <p className="text-3xl font-black text-foreground">
                                 {performance.reduce((acc, curr) => acc + curr.tasks_completed, 0)}
                             </p>
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tasks Closed</span>
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Tasks Closed</span>
                         </div>
-                        <p className="text-[10px] font-medium text-muted-foreground mt-1 flex items-center gap-1">
+                        <p className="text-[10px] font-bold text-muted-foreground mt-2 flex items-center gap-1 italic opacity-70">
                             <Zap className="h-3 w-3 text-yellow-500" /> Combined Efficiency
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card className="border-primary/5 shadow-sm">
+                <Card className="erp-card border-primary/5 shadow-sm bg-card ring-1 ring-primary/5">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-black uppercase tracking-widest text-primary text-muted-foreground">Team Size</CardTitle>
+                        <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Team Size</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-baseline gap-2">
                             <p className="text-3xl font-black text-foreground">{performance.length}</p>
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Members</span>
+                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Active Members</span>
                         </div>
-                        <p className="text-[10px] font-medium text-muted-foreground mt-1 flex items-center gap-1">
+                        <p className="text-[10px] font-bold text-muted-foreground mt-2 flex items-center gap-1 italic opacity-70">
                             <Users className="h-3 w-3 text-primary" /> Tracked Specialists
                         </p>
                     </CardContent>
@@ -162,7 +195,7 @@ export default function TeamPerformance() {
                     <CardTitle className="text-xl font-black flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-green-600" /> Efficiency Leaderboard
                     </CardTitle>
-                    <CardDescription>Performance metrics based on actual vs estimated completion dates.</CardDescription>
+                    <CardDescription>Monthly performance metrics based on actual vs estimated completion dates.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">

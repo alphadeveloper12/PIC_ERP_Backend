@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Department, WorkflowPhase, WorkflowStep, Task, Document, UserDepartmentRole, AccessPolicy
+from .models import Department, WorkflowPhase, WorkflowStep, Task, Document, UserDepartmentRole, AccessPolicy, Notification
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -43,6 +43,33 @@ class DocumentSerializer(serializers.ModelSerializer):
         model = Document
         fields = '__all__'
         read_only_fields = ['uploaded_by', 'created_at']
+
+class TaskListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for list views (Dashboard).
+    Excludes heavy nested relationships like documents.
+    """
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
+    workflow_step_details = WorkflowStepSerializer(source='workflow_step', read_only=True)
+    p6_activity_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        # Let's use specific fields to be sure
+        fields = [
+            # essential fields only
+            'id', 'status', 'due_date', 
+            'project', 'project_name',
+            'assigned_to', 'assigned_to_name',
+            'workflow_step', 'workflow_step_details',
+            'p6_activity_name',
+            'created_at', 'updated_at'
+        ]
+
+    def get_p6_activity_name(self, obj):
+        act = obj.linked_p6_activity.first()
+        return act.activity_name if act else None
 
 class TaskSerializer(serializers.ModelSerializer):
     workflow_step_details = WorkflowStepSerializer(source='workflow_step', read_only=True)
@@ -89,7 +116,7 @@ class TaskActionSerializer(serializers.Serializer):
     """
     Serializer for actions like Assign, Approve, Reject
     """
-    action = serializers.ChoiceField(choices=['ASSIGN', 'APPROVE', 'REJECT', 'SUBMIT', 'START'])
+    action = serializers.ChoiceField(choices=['ASSIGN', 'APPROVE', 'REJECT', 'SUBMIT', 'START', 'RETURN'])
     assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
     comments = serializers.CharField(required=False, allow_blank=True)
 
@@ -101,3 +128,9 @@ class AccessPolicySerializer(serializers.ModelSerializer):
     class Meta:
         model = AccessPolicy
         fields = '__all__'
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = '__all__'
+        read_only_fields = ['created_at', 'is_read']

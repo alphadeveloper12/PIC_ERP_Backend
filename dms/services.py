@@ -8,9 +8,14 @@ class WorkflowEngine:
     def transition_task(task: Task, action: str, user, comments: str = None, assigned_to = None):
         """
         Handles state transitions for a Task.
-        action: 'ASSIGN', 'SUBMIT', 'APPROVE', 'REJECT'
+        action: 'ASSIGN', 'SUBMIT', 'APPROVE', 'REJECT', 'RETURN'
         """
-        if action == 'ASSIGN':
+        if action == 'RETURN':
+            # HOD returns task to Project Owner (misassigned)
+            task.status = 'RETURNED'
+            task.assigned_to = None # Clear assignee
+            
+        elif action == 'ASSIGN':
             if not assigned_to:
                 raise ValueError("assigned_to is required for ASSIGN action")
             task.assigned_to = assigned_to
@@ -57,6 +62,93 @@ class WorkflowEngine:
             
         task.save()
         
+        # --- Notification Generation ---
+        from .models import Notification
+        
+        task_title = WorkflowEngine._get_task_title(task)
+
+        if action == 'ASSIGN' and assigned_to:
+            Notification.objects.create(
+                recipient=assigned_to,
+                title="New Task Assigned",
+                message=f"You have been assigned: {task_title}",
+                notification_type='UNASSIGNED', # or generic
+                related_task=task,
+                related_project=task.project
+            )
+            
+        elif action == 'REJECT':
+             # Notify the person it was rejected TO (the assignee)
+             if task.assigned_to:
+                Notification.objects.create(
+                    recipient=task.assigned_to,
+                    title="Task Rejected",
+                    message=f"Task rejected ({task_title}): {comments}",
+                    notification_type='GENERAL',
+                    related_task=task,
+                    related_project=task.project
+                )
+                
+        elif action == 'SUBMIT':
+            # Notify HOD(s) of the Department responsible for this step
+            from .models import UserDepartmentRole
+            
+            # Find HODs for this project & department
+            if task.workflow_step and task.workflow_step.actor_department:
+                hods = UserDepartmentRole.objects.filter(
+                    project=task.project, 
+                    department=task.workflow_step.actor_department,
+                    role='HOD'
+                )
+                submitter = "A member"
+                if task.assigned_to:
+                    submitter = task.assigned_to.get_full_name() or task.assigned_to.username
+
+                for role in hods:
+                     Notification.objects.create(
+                        recipient=role.user,
+                        title="Task Submitted for Approval",
+                        message=f"{submitter} submitted: {task_title}",
+                        notification_type='GENERAL',
+                        related_task=task,
+                        related_project=task.project
+                    )
+            
+            # Fallback: Notify Project Owner if no HOD found (or always?)
+            elif task.project.owner_user:
+                 Notification.objects.create(
+                    recipient=task.project.owner_user,
+                    title="Task Submitted (No HOD Found)",
+                    message=f"Task submitted: {task_title}",
+                    notification_type='GENERAL',
+                    related_task=task,
+                    related_project=task.project
+                )
+
+        elif action == 'APPROVE':
+            # Notify Project Owner
+            if task.project.owner_user:
+                  Notification.objects.create(
+                    recipient=task.project.owner_user,
+                    title="Task Approved",
+                    message=f"Task approved: {task_title}",
+                    notification_type='GENERAL',
+                    related_task=task,
+                    related_project=task.project
+                )
+                
+        elif action == 'RETURN':
+             # Notify Project Owner
+             if task.project.owner_user:
+                Notification.objects.create(
+                    recipient=task.project.owner_user,
+                    title="Task Returned by HOD",
+                    message=f"HOD returned task ({task_title}): {comments or 'Incorrect Department'}",
+                    notification_type='UNASSIGNED',
+                    related_task=task,
+                    related_project=task.project
+                )
+
         if action == 'ASSIGN':
              # Also sync P6 on assign if it wasn't started
              WorkflowEngine._sync_p6_activity(task, status='In Progress')
@@ -111,6 +203,35 @@ class WorkflowEngine:
                 curr = curr.parent_task
         except Exception as e:
             print(f"P6 Sync Error: {e}")
+
+    @staticmethod
+    def _get_task_title(task: Task) -> str:
+        """
+        Returns the P6 Activity Name if available, otherwise the workflow action description.
+        """
+        try:
+            from django.apps import apps
+            P6Activity = apps.get_model('planning', 'P6Activity')
+            
+            # Check current task
+            p6_act = P6Activity.objects.filter(dms_task=task).first()
+            if p6_act:
+                return p6_act.activity_name
+            
+            # Check parents
+            curr = task.parent_task
+            visited = {task.id}
+            while curr and curr.id not in visited:
+                visited.add(curr.id)
+                p6_act = P6Activity.objects.filter(dms_task=curr).first()
+                if p6_act:
+                    return p6_act.activity_name
+                curr = curr.parent_task
+                
+        except Exception:
+            pass
+            
+        return task.workflow_step.action_description if task.workflow_step else "Custom Task"
 
     @staticmethod
     def create_next_task(current_task: Task):

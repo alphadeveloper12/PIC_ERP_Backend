@@ -226,16 +226,16 @@ export default function PermissionsManager() {
     return (
         <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6">
             {/* Header with Project Selector */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-white p-8 rounded-3xl shadow-sm border border-primary/5">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 erp-header">
                 <div className="space-y-1">
-                    <h1 className="text-4xl font-black tracking-tight text-foreground flex items-center gap-4">
-                        <div className="bg-primary/10 p-2 rounded-2xl text-primary">
-                            <Shield className="h-10 w-10" />
+                    <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-xl text-primary shrink-0">
+                            <Shield className="h-8 w-8" />
                         </div>
-                        Access & Permissions
+                        Privilege Registry
                     </h1>
-                    <p className="text-muted-foreground font-medium text-lg italic pl-16">
-                        Project-specific security policies for every department.
+                    <p className="text-sm font-bold text-muted-foreground italic pl-16">
+                        Define project-specific security boundaries for every department.
                     </p>
                 </div>
 
@@ -262,7 +262,7 @@ export default function PermissionsManager() {
                 </div>
             </div>
 
-            <Card className="p-8 border-none shadow-2xl shadow-primary/5 rounded-[2.5rem] bg-white/50 backdrop-blur-xl">
+            <Card className="erp-card bg-card border-none shadow-2xl shadow-primary/5 ring-1 ring-primary/5 p-8">
                 {/* Search & Statistics */}
                 <div className="flex flex-col md:flex-row items-center gap-6 mb-10">
                     <div className="relative flex-1 group">

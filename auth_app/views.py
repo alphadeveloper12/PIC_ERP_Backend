@@ -51,6 +51,84 @@ class UserListView(generics.ListAPIView):
 
 
 
+
+def get_user_data_response(user, refresh=None):
+    from dms.models import UserDepartmentRole, AccessPolicy
+    from rest_framework_simplejwt.tokens import RefreshToken
+    
+    if not refresh:
+        refresh = RefreshToken.for_user(user)
+
+    roles_data = []
+    all_perms = set()
+    project_perms = {} # { projectId: { perm1, perm2 } }
+    
+    # Superusers logically have all access, but we can explicitly flag it
+    if user.is_superuser:
+        all_perms.add('superuser')
+
+    user_roles = UserDepartmentRole.objects.filter(user=user).select_related('department', 'project')
+    for ur in user_roles:
+        # Find policy for this dept/role AND THIS PROJECT
+        policy = AccessPolicy.objects.filter(
+            department=ur.department, 
+            role=ur.role,
+            project=ur.project  # CRITICAL FIX: Scope to project
+        ).first()
+        
+        perms = policy.permissions if policy else []
+        
+        roles_data.append({
+            'project_id': ur.project.id if ur.project else None,
+            'project_name': ur.project.name if ur.project else 'Global',
+            'department_code': ur.department.code,
+            'department_name': ur.department.name,
+            'role': ur.role,
+            'permissions': perms
+        })
+        
+        # Flatten for legacy support (or global view)
+        all_perms.update(perms)
+        
+        # Structure by Project for correct UI scoping
+        pid = ur.project.id if ur.project else 'GLOBAL'
+        if pid not in project_perms:
+            project_perms[pid] = set()
+        project_perms[pid].update(perms)
+
+    # Convert sets to lists for JSON
+    start_structure_perms = {k: list(v) for k, v in project_perms.items()}
+
+    return {
+        'token': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_superuser': user.is_superuser,
+            'is_owner': user.owned_projects.exists(),
+            'owned_project_ids': list(user.owned_projects.values_list('id', flat=True)),
+            'is_hod': user.department_roles.filter(role='HOD').exists(),
+            'department_roles': roles_data,
+            'permissions': list(all_perms), # Legacy flat list
+            'project_permissions': start_structure_perms # New structured dict
+        }
+    }
+
+
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        data = get_user_data_response(request.user)
+        # We might not want to rotate token on every check, but returning a fresh one is fine/good.
+        # However, specifically for just verifying session, we can just return the user part or the whole thing.
+        # Let's return the whole thing to keep state in sync.
+        return Response(data, status=status.HTTP_200_OK)
+
+
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -60,47 +138,8 @@ class LoginAPIView(APIView):
             user = serializer.validated_data['user']
             refresh = RefreshToken.for_user(user)
 
-            # Fetch all roles and permissions
-            from dms.models import UserDepartmentRole, AccessPolicy
-            roles_data = []
-            all_perms = set()
-            
-            # Superusers logically have all access, but we can explicitly flag it
-            if user.is_superuser:
-                all_perms.add('superuser')
-
-            user_roles = UserDepartmentRole.objects.filter(user=user).select_related('department', 'project')
-            for ur in user_roles:
-                # Find policy for this dept/role
-                policy = AccessPolicy.objects.filter(department=ur.department, role=ur.role).first()
-                perms = policy.permissions if policy else []
-                
-                roles_data.append({
-                    'project_id': ur.project.id if ur.project else None,
-                    'project_name': ur.project.name if ur.project else 'Global',
-                    'department_code': ur.department.code,
-                    'department_name': ur.department.name,
-                    'role': ur.role,
-                    'permissions': perms
-                })
-                all_perms.update(perms)
-
-            return Response({
-                'token': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'is_superuser': user.is_superuser,
-                    'is_owner': user.owned_projects.exists(),
-                    'owned_project_ids': list(user.owned_projects.values_list('id', flat=True)),
-                    'is_hod': user.department_roles.filter(role='HOD').exists(),
-                    'department_roles': roles_data,
-                    'permissions': list(all_perms)
-                }
-            }, status=status.HTTP_200_OK)
+            data = get_user_data_response(user, refresh)
+            return Response(data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

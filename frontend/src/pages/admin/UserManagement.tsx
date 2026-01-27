@@ -36,13 +36,16 @@ export default function UserManagement() {
     }, []);
 
     return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">User Management (Admin)</h1>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <header className="erp-header">
+                <h1 className="text-2xl font-black tracking-tight text-foreground">User Management</h1>
+                <p className="text-sm font-bold text-muted-foreground italic">System-wide user administration and role monitoring.</p>
+            </header>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>All Users</CardTitle>
-                    <CardDescription>System-wide user list. Visible only to Superusers.</CardDescription>
+            <Card className="erp-card bg-card">
+                <CardHeader className="pb-4">
+                    <CardTitle className="text-xl font-black">Authentication Registry</CardTitle>
+                    <CardDescription className="text-xs font-bold text-muted-foreground">Visible only to Superusers.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>

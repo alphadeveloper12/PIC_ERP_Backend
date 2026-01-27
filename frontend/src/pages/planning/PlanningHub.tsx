@@ -223,10 +223,10 @@ export default function PlanningHub() {
         <div className="space-y-8 max-w-[1600px] mx-auto pb-20">
             {uploading && <Loading fullPage message="Processing Schedule Data..." />}
 
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Planning Hub</h1>
-                    <p className="text-muted-foreground mt-2">Manage project schedules, P6 activities, and Primavera data ingestion.</p>
+            <header className="erp-header flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-black tracking-tight text-foreground">Planning Hub</h1>
+                    <p className="text-sm font-bold text-muted-foreground italic">Manage project schedules and P6 activity synchronization.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -356,7 +356,7 @@ export default function PlanningHub() {
 
             <div className="animate-in fade-in duration-500">
                 {activeTab === 'activities' ? (
-                    <Card className="border-primary/5 shadow-xl shadow-primary/5 overflow-hidden">
+                    <Card className="erp-card bg-card border-none shadow-2xl shadow-primary/5 ring-1 ring-primary/5 overflow-hidden">
                         <CardHeader className="bg-muted/30 pb-6 border-b">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div className="space-y-1">

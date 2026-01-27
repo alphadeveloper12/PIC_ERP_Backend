@@ -10,12 +10,18 @@ import PermissionsManager from './pages/owner/PermissionsManager';
 import UserManagement from './pages/admin/UserManagement';
 import PlanningHub from './pages/planning/PlanningHub';
 import TaskDetail from './pages/dms/TaskDetail';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { useAuthStore } from './hooks/useAuthStore';
 import React from 'react';
 
 // Protected Route Wrapper (Generic)
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token } = useAuthStore();
+  const { token, verifySession } = useAuthStore();
+
+  React.useEffect(() => {
+    if (token) verifySession();
+  }, [token]);
+
   if (!token) {
     return <Navigate to="/login" replace />;
   }
@@ -24,7 +30,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Admin Protected Route Wrapper (Superuser Only)
 const AdminProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token, user } = useAuthStore();
+  const { token, user, verifySession } = useAuthStore();
+
+  React.useEffect(() => {
+    if (token) verifySession();
+  }, [token]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -38,7 +48,12 @@ const AdminProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const OwnerProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token, user } = useAuthStore();
+  const { token, user, verifySession } = useAuthStore();
+
+  React.useEffect(() => {
+    if (token) verifySession();
+  }, [token]);
+
   if (!token) return <Navigate to="/login" replace />;
   if (!user?.is_superuser && !user?.is_owner) return <Navigate to="/" replace />;
   return children;
@@ -104,6 +119,10 @@ const router = createBrowserRouter([
             <UserManagement />
           </AdminProtectedRoute>
         ),
+      },
+      {
+        path: 'notifications',
+        element: <NotificationsPage />,
       },
     ],
   },

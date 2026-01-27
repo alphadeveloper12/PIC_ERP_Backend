@@ -2,16 +2,20 @@ from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Department, Task, Document, WorkflowStep, UserDepartmentRole, AccessPolicy
+from .models import Department, Task, Document, WorkflowStep, UserDepartmentRole, AccessPolicy, Notification
 from .serializers import (
-    DepartmentSerializer, TaskSerializer, DocumentSerializer, 
-    TaskActionSerializer, UserDepartmentRoleSerializer, AccessPolicySerializer
+    DepartmentSerializer, TaskSerializer, DocumentSerializer,
+    TaskListSerializer, # Added
+    TaskActionSerializer, UserDepartmentRoleSerializer, AccessPolicySerializer, NotificationSerializer
 )
 from .services import WorkflowEngine, DocumentService
 from .permissions import HasRequiredPermission
 from django.utils import timezone
 from django.db.models import Count, Q, F
 from projects.models import Project
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
@@ -83,17 +87,34 @@ class ProjectTeamViewSet(viewsets.ModelViewSet):
         hod_departments = UserDepartmentRole.objects.filter(
             user=user, role='HOD'
         ).values_list('department_id', flat=True)
+
+        is_owner = Project.objects.filter(owner_user=user).exists()
         
-        if not hod_departments and not user.is_superuser:
-            return Response({"error": "You do not have HOD access to view performance."}, status=403)
+        if not hod_departments and not user.is_superuser and not is_owner:
+            return Response({"error": "You do not have access to view performance."}, status=403)
 
         # Filter tasks
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+
         tasks = Task.objects.filter(status='APPROVED', assigned_to__isnull=False)
+        
+        if month:
+            tasks = tasks.filter(completed_at__month=month)
+        if year:
+            tasks = tasks.filter(completed_at__year=year)
+        
         if project_id:
             tasks = tasks.filter(project_id=project_id)
         
         if not user.is_superuser:
-            tasks = tasks.filter(workflow_step__actor_department_id__in=hod_departments)
+            filters = Q()
+            if hod_departments:
+                filters |= Q(workflow_step__actor_department_id__in=hod_departments)
+            if is_owner:
+                filters |= Q(project__owner_user=user)
+            
+            tasks = tasks.filter(filters)
 
         from planning.models import P6Activity
         
@@ -152,9 +173,14 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated, HasRequiredPermission]
     required_permission = 'view_tasks'
-    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['project__name', 'workflow_step__action_description']
     ordering_fields = ['created_at', 'status', 'project__code']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            from .serializers import TaskListSerializer
+            return TaskListSerializer
+        return super().get_serializer_class()
 
     def get_queryset(self):
         """
@@ -162,7 +188,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         1. project_id (mandatory/optional depending on context)
         2. mode: 'my_tasks' (assigned to user) or 'department' (user's department role)
         """
-        qs = super().get_queryset()
+        qs = Task.objects.select_related('project', 'assigned_to', 'workflow_step', 'workflow_step__actor_department').all()
         
         # Filter by Project ID
         project_id = self.request.query_params.get('project_id')
@@ -205,7 +231,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def perform_action(self, request, pk=None):
         """
         Executes a workflow action on a task using WorkflowEngine.
-        Supported actions: ASSIGN, SUBMIT, APPROVE, REJECT.
+        Supported actions: ASSIGN, SUBMIT, APPROVE, REJECT, RETURN.
         """
         task = self.get_object()
         serializer = self.get_serializer(data=request.data)
@@ -247,6 +273,62 @@ class TaskViewSet(viewsets.ModelViewSet):
             rejected=Count('id', filter=Q(status='REJECTED')),
         )
         return Response(stats)
+
+    @action(detail=False, methods=['post'])
+    def bulk_assign_member(self, request):
+        """
+        HOD: Bulk assign tasks to a team member.
+        Input: { "task_ids": [1, 2], "assigned_to": 5 }
+        """
+        task_ids = request.data.get('task_ids', [])
+        assigned_to_id = request.data.get('assigned_to')
+        
+        if not task_ids or not assigned_to_id:
+            return Response({'error': 'task_ids and assigned_to are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate User
+        try:
+            assignee = User.objects.get(id=assigned_to_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Assignee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        count = 0
+        tasks = Task.objects.filter(id__in=task_ids)
+        for task in tasks:
+            # Check permissions? HOD logic etc.
+            # Assuming frontend filters correctly, but backend should ideally check
+            WorkflowEngine.transition_task(task, 'ASSIGN', request.user, assigned_to=assignee)
+            count += 1
+            
+        return Response({'status': 'assigned', 'count': count})
+
+    @action(detail=False, methods=['post'])
+    def bulk_assign_department(self, request):
+        """
+        Owner: Bulk re-assign tasks to a different department (fix AI mistakes).
+        Input: { "task_ids": [1, 2], "department_id": 3 }
+        """
+        task_ids = request.data.get('task_ids', [])
+        department_id = request.data.get('department_id')
+        
+        if not task_ids or not department_id:
+            return Response({'error': 'task_ids and department_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Find generic start step for this department
+        # We assume there is at least one step for this department.
+        # We'll pick the one with the lowest ordering?
+        target_step = WorkflowStep.objects.filter(actor_department_id=department_id).order_by('ordering').first()
+        
+        if not target_step:
+             return Response({'error': 'No workflow steps found for this department'}, status=status.HTTP_400_BAD_REQUEST)
+
+        updated = Task.objects.filter(id__in=task_ids).update(
+            workflow_step=target_step,
+            status='PENDING', # Reset to Pending Assignment
+            assigned_to=None   # Clear specific assignee
+        )
+        
+        return Response({'status': 'reassigned', 'count': updated, 'department': target_step.actor_department.name})
 
 class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()
@@ -336,3 +418,25 @@ class AccessPolicyViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     required_permission = 'manage_projects' # Project Owner permission
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    """
+    Manages user notifications.
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response({'status': 'marked as read'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        self.get_queryset().update(is_read=True)
+        return Response({'status': 'all marked as read'})

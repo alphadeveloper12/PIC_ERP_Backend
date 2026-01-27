@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Plus, Users, UserPlus, Trophy, LayoutDashboard } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Users, UserPlus, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/hooks/useAuthStore';
 
@@ -150,15 +150,14 @@ export default function TeamManagement() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl font-bold tracking-tight">Team Management</h1>
-                    {/* Project Selector */}
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className="text-sm font-medium text-muted-foreground mr-2">Primary Project:</span>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <header className="erp-header flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-black tracking-tight text-foreground">Personnel Registry</h1>
+                    <div className="flex items-center gap-3 mt-2">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Active Context</span>
                         <select
-                            className="h-9 rounded-md border bg-background text-sm px-3 w-[250px] shadow-sm"
+                            className="h-10 rounded-xl border-2 bg-slate-50 text-sm px-4 w-[280px] font-bold shadow-inner focus:border-primary/20 transition-all outline-none"
                             value={selectedProject}
                             onChange={e => setSelectedProject(e.target.value)}
                         >
@@ -169,28 +168,28 @@ export default function TeamManagement() {
                         </select>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-3">
                     <Button
-                        className="gap-2 bg-yellow-500 hover:bg-yellow-600 border-none shadow-lg shadow-yellow-100"
+                        className="h-12 px-6 rounded-2xl bg-yellow-500 hover:bg-yellow-600 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-yellow-500/20 transition-all hover:scale-[1.02] gap-2"
                         onClick={() => navigate('/team/performance')}
                     >
-                        <Trophy className="h-4 w-4" /> Performance
+                        <Trophy className="h-4 w-4" /> Performance KPIs
                     </Button>
-                    <Button variant="outline" onClick={() => setShowUserForm(!showUserForm)}>
+                    <Button variant="outline" className="h-12 px-6 rounded-2xl border-2 font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-50" onClick={() => setShowUserForm(!showUserForm)}>
                         <UserPlus className="mr-2 h-4 w-4" /> Register Person
                     </Button>
-                    <Button onClick={() => setShowAssignForm(!showAssignForm)} disabled={!selectedProject}>
-                        <Plus className="mr-2 h-4 w-4" /> Assign to Team
+                    <Button className="h-12 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 transition-all hover:scale-[1.02]" onClick={() => setShowAssignForm(!showAssignForm)} disabled={!selectedProject}>
+                        <Plus className="mr-2 h-4 w-4" /> Team Assignment
                     </Button>
                 </div>
-            </div>
+            </header>
 
             {/* Register User Form */}
             {showUserForm && (
-                <Card className="border-primary/20 bg-primary/5">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Register New Person</CardTitle>
-                        <CardDescription>Create a global user profile.</CardDescription>
+                <Card className="erp-card bg-card border-primary/20 bg-primary/5 ring-1 ring-primary/5">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-xl font-black">Register New Person</CardTitle>
+                        <CardDescription className="text-xs font-bold text-muted-foreground italic">Create a global user profile.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleRegister} className="space-y-4">
@@ -212,10 +211,10 @@ export default function TeamManagement() {
 
             {/* Assign Member Form */}
             {showAssignForm && (
-                <Card className="border-primary/20">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Assign Member to {projects.find(p => p.id == selectedProject)?.name}</CardTitle>
-                        <CardDescription>Assign an existing user to a department and role.</CardDescription>
+                <Card className="erp-card bg-card ring-1 ring-primary/5">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-xl font-black">Assign Member to {projects.find(p => p.id == selectedProject)?.name}</CardTitle>
+                        <CardDescription className="text-xs font-bold text-muted-foreground italic">Assign an existing user to a department and role.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleAssign} className="flex flex-wrap gap-4 items-end">
@@ -266,14 +265,14 @@ export default function TeamManagement() {
             )}
 
             {/* Team List (Showing only assigned members) */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Team Members</CardTitle>
-                        <CardDescription>Manage roles for people working on this project.</CardDescription>
+            <Card className="erp-card bg-card border-none shadow-2xl shadow-primary/5 ring-1 ring-primary/5">
+                <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 p-8">
+                    <div className="space-y-1">
+                        <CardTitle className="text-xl font-black">Active Team Roster</CardTitle>
+                        <CardDescription className="text-xs font-bold text-muted-foreground italic">Manage roles for people working on this project.</CardDescription>
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-8">
                     <div className="space-y-4">
                         {loading ? (
                             <p className="text-center py-8 text-muted-foreground">Loading team members...</p>

@@ -108,6 +108,12 @@ export default function TaskDashboard() {
     const [assigneeId, setAssigneeId] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+    // Bulk State
+    const [selectedTasks, setSelectedTasks] = useState<number[]>([]);
+    const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+    const [bulkAssignee, setBulkAssignee] = useState('');
+    const [bulkDepartment, setBulkDepartment] = useState('');
+
     const fetchTasks = async () => {
         setLoading(true);
         try {
@@ -126,13 +132,17 @@ export default function TaskDashboard() {
             const projRes = await api.get('/api/projects/?mode=my_projects');
             setProjects(projRes.data.data);
 
-            // Global team for creation modal (HOD view)
             const teamRes = await api.get('/dms/team/?page_size=100');
             const data = teamRes.data.results || teamRes.data;
             setTeamMembers(data.map((r: any) => ({
                 id: r.user,
                 ...r.user_details
             })));
+
+            // Departments for Owner
+            const deptRes = await api.get('/dms/departments/');
+            setDepartments(deptRes.data.results || deptRes.data);
+
         } catch (e) {
             console.error(e);
         }
@@ -198,18 +208,74 @@ export default function TaskDashboard() {
     const handleAction = async (taskId: number, action: string) => {
         setActionLoading(true);
         try {
-            await api.post(`/dms/tasks/${taskId}/perform_action/`, {
+            const payload: any = {
                 action,
-                comments: actionComment,
-                assigned_to: action === 'ASSIGN' ? assigneeId : undefined
-            });
+                comments: actionComment
+            };
+            if (action === 'ASSIGN') {
+                payload.assigned_to = parseInt(assigneeId);
+            }
+
+            await api.post(`/dms/tasks/${taskId}/perform_action/`, payload);
             toast.success(`Task status updated: ${action}`);
             setExpandedTask(null);
             setActionComment('');
             fetchTasks();
+        } catch (e: any) {
+            console.error(e);
+            const errorData = e.response?.data;
+            const msg = errorData?.error || (typeof errorData === 'object' ? JSON.stringify(errorData) : errorData) || e.message || "Action failed";
+            toast.error(msg);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedTasks.length === tasks.length) setSelectedTasks([]);
+        else setSelectedTasks(tasks.map(t => t.id));
+    };
+
+    const toggleSelect = (id: number) => {
+        if (selectedTasks.includes(id)) setSelectedTasks(selectedTasks.filter(tid => tid !== id));
+        else setSelectedTasks([...selectedTasks, id]);
+    };
+
+    const handleBulkAssignMember = async () => {
+        if (!bulkAssignee || selectedTasks.length === 0) return;
+        setActionLoading(true);
+        try {
+            await api.post('/dms/tasks/bulk_assign_member/', {
+                task_ids: selectedTasks,
+                assigned_to: parseInt(bulkAssignee)
+            });
+            toast.success(`Assigned ${selectedTasks.length} tasks successfully`);
+            setSelectedTasks([]);
+            setBulkAssignee('');
+            fetchTasks();
         } catch (e) {
             console.error(e);
-            toast.error("Action failed");
+            toast.error("Bulk assignment failed");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleBulkAssignDept = async () => {
+        if (!bulkDepartment || selectedTasks.length === 0) return;
+        setActionLoading(true);
+        try {
+            await api.post('/dms/tasks/bulk_assign_department/', {
+                task_ids: selectedTasks,
+                department_id: parseInt(bulkDepartment)
+            });
+            toast.success(`Re-assigned ${selectedTasks.length} tasks to department`);
+            setSelectedTasks([]);
+            setBulkDepartment('');
+            fetchTasks();
+        } catch (e: any) {
+            console.error(e);
+            toast.error(e.response?.data?.error || "Bulk re-assignment failed");
         } finally {
             setActionLoading(false);
         }
@@ -245,20 +311,22 @@ export default function TaskDashboard() {
             case 'SUBMITTED': return 'bg-purple-100 text-purple-700 border-purple-200';
             case 'APPROVED': return 'bg-green-100 text-green-700 border-green-200';
             case 'REJECTED': return 'bg-red-100 text-red-700 border-red-200';
+            case 'RETURNED': return 'bg-orange-100 text-orange-700 border-orange-200 animate-pulse';
             default: return 'bg-gray-100 text-gray-700 border-gray-200';
         }
     };
 
     return (
-        <div className="space-y-8 max-w-[1600px] mx-auto pb-20">
-            {actionLoading && <Loading fullPage message="Executing workflow action..." />}
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Task Registry</h1>
-                    <p className="text-muted-foreground mt-2">Manage workflow progression and task assignments.</p>
+        <div className="space-y-8 max-w-[1600px] mx-auto pb-32">
+            {actionLoading && <Loading fullPage message="Processing..." />}
+            <header className="erp-header flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-black tracking-tight text-foreground">Task Registry</h1>
+                    <p className="text-sm font-bold text-muted-foreground italic">Manage workflow progression and task assignments across projects.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {/* ... (Create Modal kept same) ... */}
                     {(user?.is_owner || user?.is_hod || user?.is_superuser) && (
                         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                             <DialogTrigger asChild>
@@ -343,11 +411,73 @@ export default function TaskDashboard() {
                 ))}
             </div>
 
-            <div className="grid gap-6">
+            {/* Bulk Action Bar - Sticky Bottom */}
+            {selectedTasks.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-foreground text-background px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-300">
+                    <span className="font-bold whitespace-nowrap">{selectedTasks.length} selected</span>
+                    <div className="h-4 w-[1px] bg-background/20" />
+
+                    {/* HOD Bulk Assign */}
+                    {(activeTab === 'department' || user?.is_hod) && (
+                        <div className="flex items-center gap-2">
+                            <select
+                                className="h-8 rounded bg-background/10 border-background/20 text-background text-xs px-2"
+                                value={bulkAssignee}
+                                onChange={e => setBulkAssignee(e.target.value)}
+                            >
+                                <option value="" className="text-foreground">Assign Member...</option>
+                                {teamMembers.map(m => (
+                                    <option key={m.id} value={m.id} className="text-foreground">{m.first_name} {m.last_name}</option>
+                                ))}
+                            </select>
+                            <Button size="sm" variant="secondary" className="h-8" onClick={handleBulkAssignMember} disabled={!bulkAssignee}>
+                                Assign
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Owner Bulk Department Move */}
+                    {(activeTab === 'project_owner' || user?.is_owner) && (
+                        <div className="flex items-center gap-2">
+                            <div className="h-4 w-[1px] bg-background/20" />
+                            <select
+                                className="h-8 rounded bg-background/10 border-background/20 text-background text-xs px-2"
+                                value={bulkDepartment}
+                                onChange={e => setBulkDepartment(e.target.value)}
+                            >
+                                <option value="" className="text-foreground">Move Dept...</option>
+                                {departments.map(d => (
+                                    <option key={d.id} value={d.id} className="text-foreground">{d.name}</option>
+                                ))}
+                            </select>
+                            <Button size="sm" variant="secondary" className="h-8" onClick={handleBulkAssignDept} disabled={!bulkDepartment}>
+                                Move
+                            </Button>
+                        </div>
+                    )}
+
+                    <Button size="icon" variant="ghost" className="h-8 w-8 ml-2 rounded-full hover:bg-white/20 text-white" onClick={() => setSelectedTasks([])}>
+                        <Plus className="h-4 w-4 rotate-45" />
+                    </Button>
+                </div>
+            )}
+
+            <div className="grid gap-4">
+                {/* Select All Header (Optional, or just put checking in rows) */}
+                {(activeTab === 'department' || activeTab === 'project_owner') && tasks.length > 0 && (
+                    <div className="flex items-center gap-2 px-1">
+                        <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300"
+                            checked={selectedTasks.length === tasks.length && tasks.length > 0}
+                            onChange={toggleSelectAll}
+                        />
+                        <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Select All Tasks</span>
+                    </div>
+                )}
+
                 {loading ? (
                     <>
-                        <TaskCardSkeleton />
-                        <TaskCardSkeleton />
                         <TaskCardSkeleton />
                         <TaskCardSkeleton />
                     </>
@@ -355,44 +485,53 @@ export default function TaskDashboard() {
                     <div className="py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
                         <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                         <h3 className="text-lg font-bold">No active tasks found</h3>
-                        <p className="text-muted-foreground">All items for this view are either completed or indexed.</p>
                     </div>
                 ) : (
                     tasks.map(task => (
-                        <Card key={task.id} className={`group border-primary/5 hover:border-primary/20 transition-all shadow-sm ${expandedTask === task.id ? 'ring-2 ring-primary/20 shadow-lg' : ''}`}>
+                        <Card key={task.id} className={`group border-primary/5 hover:border-primary/20 transition-all shadow-sm ${expandedTask === task.id ? 'ring-2 ring-primary/20 shadow-lg' : ''} ${selectedTasks.includes(task.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
                             <div className="p-6">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-foreground text-background">
-                                                {task.project_name}
-                                            </span>
-                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${getStatusColor(task.status)}`}>
-                                                {task.status}
-                                            </span>
+                                    {/* Checkbox for Bulk Actions */}
+                                    <div className="flex items-start gap-4 flex-1">
+                                        {(activeTab === 'department' || activeTab === 'project_owner') && (
+                                            <input
+                                                type="checkbox"
+                                                className="mt-1.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                                checked={selectedTasks.includes(task.id)}
+                                                onChange={() => toggleSelect(task.id)}
+                                            />
+                                        )}
+
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-foreground text-background">
+                                                    {task.project_name}
+                                                </span>
+                                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${getStatusColor(task.status)}`}>
+                                                    {task.status}
+                                                </span>
+                                                {task.status === 'RETURNED' && (
+                                                    <span className="text-[10px] font-bold text-destructive animate-pulse">ACTION REQUIRED</span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-lg font-extrabold mt-2 hover:text-primary transition-colors cursor-pointer">
+                                                <Link to={`/dms/tasks/${task.id}`}>
+                                                    {task.p6_activity_name || task.workflow_step_details?.action_description || "Custom Assignment"}
+                                                </Link>
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                {task.p6_activity_name ? `Workflow Step: ${task.workflow_step_details?.action_description}` : task.workflow_step_details?.sequence_id ? `Workflow ID: ${task.workflow_step_details.sequence_id}` : "Manual Control"}
+                                            </p>
                                         </div>
-                                        <h3 className="text-lg font-extrabold mt-2 hover:text-primary transition-colors cursor-pointer">
-                                            <Link to={`/dms/tasks/${task.id}`}>
-                                                {task.p6_activity_name || task.workflow_step_details?.action_description || "Custom Assignment"}
-                                            </Link>
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground">
-                                            {task.p6_activity_name ? `Workflow Step: ${task.workflow_step_details?.action_description}` : task.workflow_step_details?.sequence_id ? `Workflow ID: ${task.workflow_step_details.sequence_id}` : "Manual Control"}
-                                        </p>
                                     </div>
 
                                     <div className="flex items-center gap-4">
                                         <div className="text-right hidden sm:block">
                                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Created</p>
-                                            <p className="text-sm font-medium">{new Date(task.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                            <p className="text-sm font-medium">{new Date(task.created_at).toLocaleDateString()}</p>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="font-bold border-2"
-                                                asChild
-                                            >
+                                            <Button variant="outline" size="sm" className="font-bold border-2" asChild>
                                                 <Link to={`/dms/tasks/${task.id}`}>Workspace</Link>
                                             </Button>
                                             <Button
@@ -454,9 +593,9 @@ export default function TaskDashboard() {
                                             )}
 
                                             <div className="grid gap-2">
-                                                <Label className="text-xs font-bold text-muted-foreground">Action Comments</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">Action Comments / Feedback</Label>
                                                 <Input
-                                                    placeholder="Describe the outcome or reason for this change..."
+                                                    placeholder={activeTab === 'department' ? "Add note or reject reason..." : "Describe the outcome..."}
                                                     value={actionComment}
                                                     onChange={e => setActionComment(e.target.value)}
                                                 />
@@ -467,7 +606,7 @@ export default function TaskDashboard() {
                                                 {(activeTab === 'department' || activeTab === 'project_owner' || activeTab === 'all_tasks') ? (
                                                     <div className="flex flex-wrap gap-2">
                                                         <div className="grid gap-1">
-                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground">Change Assignee</span>
+                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground">Assignee</span>
                                                             <select
                                                                 className="h-9 w-48 rounded-md border border-input px-3 text-xs bg-background"
                                                                 value={assigneeId}
@@ -484,6 +623,12 @@ export default function TaskDashboard() {
                                                                 <Button size="sm" variant="outline" className="h-9 rounded-md border-2 font-bold" onClick={() => handleAction(task.id, 'ASSIGN')} disabled={!assigneeId}>
                                                                     <UserPlus className="mr-2 h-4 w-4" /> Re-assign
                                                                 </Button>
+
+                                                                {/* HOD Return to Owner */}
+                                                                <Button size="sm" variant="outline" className="h-9 rounded-md border-2 border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100 font-bold" onClick={() => handleAction(task.id, 'RETURN')}>
+                                                                    Return to Owner
+                                                                </Button>
+
                                                                 <div className="w-[2px] bg-muted h-9 mx-2 hidden sm:block" />
                                                                 <Button size="sm" className="h-9 rounded-md font-bold bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20" onClick={() => handleAction(task.id, 'APPROVE')}>
                                                                     <Check className="mr-2 h-4 w-4" /> Final Approve
@@ -496,16 +641,15 @@ export default function TaskDashboard() {
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-wrap items-end gap-3 w-full">
+                                                        {/* Team Member View */}
                                                         <div className="grid gap-1 flex-1 min-w-[200px]">
                                                             <span className="text-[10px] font-bold uppercase text-muted-foreground">Document Submission</span>
                                                             <div className="relative group/file">
                                                                 <Input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} className="h-9 pr-20 cursor-pointer text-xs" />
                                                                 <Button
-                                                                    size="sm"
-                                                                    variant="link"
+                                                                    size="sm" variant="link"
                                                                     className="absolute right-1 top-0 h-9 text-xs font-bold opacity-0 group-hover/file:opacity-100 transition-opacity"
-                                                                    onClick={() => handleUpload(task.id)}
-                                                                    disabled={!selectedFile}
+                                                                    onClick={() => handleUpload(task.id)} disabled={!selectedFile}
                                                                 >
                                                                     <Upload className="h-3 w-3 mr-1" /> Upload
                                                                 </Button>

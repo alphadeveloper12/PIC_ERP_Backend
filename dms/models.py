@@ -114,6 +114,7 @@ class Task(models.Model):
         ('SUBMITTED', 'Submitted for Approval'),
         ('APPROVED', 'Approved'),
         ('REJECTED', 'Rejected'),
+        ('RETURNED', 'Returned to Project Control'),
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='dms_tasks')
@@ -183,3 +184,31 @@ class DepartmentWorkflowMapping(models.Model):
 
     def __str__(self):
         return f"{self.department.code} -> {self.template.name}"
+
+class Notification(models.Model):
+    """
+    Stores system notifications for users.
+    """
+    NOTIFICATION_TYPES = [
+        ('OVERDUE', 'Task Overdue'),
+        ('UNASSIGNED', 'Task Unassigned'),
+        ('PROJECT_STATUS', 'Project Schedule Status'),
+        ('GENERAL', 'General Notification'),
+    ]
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, default='GENERAL')
+    
+    related_task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    related_project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.recipient.username}"

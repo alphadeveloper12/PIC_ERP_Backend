@@ -302,12 +302,16 @@ class UserMeSerializer(serializers.ModelSerializer):
     Mirrors your previous response:
     - id, username, email
     - departments: list of departments with the user's roles and permissions
+    - permissions: Flat list of all permissions (legacy/global fallback)
+    - project_permissions: Dict of {project_id: [permissions]}
     """
     departments = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+    project_permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "departments"]
+        fields = ["id", "username", "email", "departments", "permissions", "project_permissions"]
 
     def get_departments(self, user: User) -> List[Dict[str, Any]]:
         # Collect unique departments from user's role assignments.
@@ -321,3 +325,106 @@ class UserMeSerializer(serializers.ModelSerializer):
             many=True,
             context={"user": user},
         ).data
+
+    def get_permissions(self, user: User) -> List[str]:
+        """
+        Returns a flat list of all permissions the user has across all departments and projects.
+        This serves as a fallback for the frontend 'hasAnyPermission' check when no project is active.
+        """
+        # 1. Get Core permissions (Legacy)
+        core_perms = set()
+        for ur in UserRole.objects.filter(user=user).select_related('role'):
+             for rp in ur.role.role_permissions.all():
+                 core_perms.add(rp.permission.code)
+        
+        # 2. Get DMS permissions
+        try:
+            from dms.models import UserDepartmentRole, AccessPolicy
+            dms_perms = set()
+            
+            # Find all roles assigned to user
+            user_dms_roles = UserDepartmentRole.objects.filter(user=user)
+            
+            for ur in user_dms_roles:
+                # Find matching policy
+                # Policy matches: Project + Department + Role
+                # If policy for specific project exists, use it.
+                # If policy is Global (project=None), it might apply? 
+                # For now, let's just grab the policy that matches the assignment.
+                
+                # If UserDepartmentRole has a project, look for that project's policy
+                # If UserDepartmentRole has project=None (Global Role?), look for Global Policy?
+                
+                # Let's try to match exactly first
+                policies = AccessPolicy.objects.filter(
+                    department=ur.department,
+                    role=ur.role
+                )
+                
+                if ur.project:
+                    policies = policies.filter(project=ur.project)
+                else:
+                    # User has global role in department... 
+                    # Does that mean they get global policy? or all project policies?
+                    # Let's assume global policy
+                    policies = policies.filter(project__isnull=True)
+                
+                for policy in policies:
+                    for p_code in policy.permissions:
+                        dms_perms.add(p_code)
+                        
+            return list(core_perms.union(dms_perms))
+            
+        except ImportError:
+            # Fallback if dms app is not available (though it should be)
+            return list(core_perms)
+        except Exception as e:
+            # Log error?
+            return list(core_perms)
+
+    def get_project_permissions(self, user: User) -> Dict[str, List[str]]:
+        """
+        Returns a dict mapping project_id (as string) to a list of permission codes.
+        Used by the frontend to enforce project-scoped security.
+        """
+        result = {}
+        
+        try:
+            from dms.models import UserDepartmentRole, AccessPolicy
+            
+            # Find all user roles that are attached to a project
+            user_project_roles = UserDepartmentRole.objects.filter(
+                user=user, 
+                project__isnull=False
+            ).select_related('project', 'department')
+            
+            for ur in user_project_roles:
+                project_id = str(ur.project.id)
+                
+                # Find specific policy for this project/dept/role
+                try:
+                    policy = AccessPolicy.objects.get(
+                        project=ur.project,
+                        department=ur.department,
+                        role=ur.role
+                    )
+                    if project_id not in result:
+                        result[project_id] = []
+                    result[project_id].extend(policy.permissions)
+                    
+                except AccessPolicy.DoesNotExist:
+                     # Maybe fallback to global policy? 
+                     # Usually specific project policy overrides or is required.
+                     # Let's check for a global template assignment?
+                     # dms/utils.py seed function copies templates to projects.
+                     # So we expect a project-specific policy to exist.
+                     pass
+            
+            # Deduplicate per project
+            for pid in result:
+                result[pid] = list(set(result[pid]))
+                
+        except ImportError:
+            pass
+            
+        return result

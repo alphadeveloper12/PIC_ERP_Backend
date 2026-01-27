@@ -20,6 +20,7 @@ interface User {
         permissions: string[];
     }>;
     permissions?: string[];
+    project_permissions?: Record<string, string[]>;
 }
 
 interface AuthState {
@@ -28,6 +29,7 @@ interface AuthState {
     login: (credentials: any) => Promise<void>;
     logout: () => void;
     register: (data: any) => Promise<void>;
+    verifySession: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -57,5 +59,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     },
     register: async (data) => {
         await api.post('/api/auth/register/', data);
+    },
+    verifySession: async () => {
+        try {
+            const response = await api.get('/api/auth/me/');
+            // Update user data if needed, or just confirm it's valid
+            const { user } = response.data;
+            set({ user });
+            localStorage.setItem('user', JSON.stringify(user));
+            return true;
+        } catch (error) {
+            set({ token: null, user: null });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            return false;
+        }
     }
 }));

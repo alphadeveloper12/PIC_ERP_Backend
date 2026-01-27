@@ -175,7 +175,7 @@ export default function TaskDetail() {
                                 {task.status.replace('_', ' ')}
                             </span>
                         </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight max-w-2xl">
+                        <h1 className="text-2xl font-black tracking-tight text-foreground leading-tight max-w-2xl">
                             {task.p6_activity_name || task.workflow_step_details?.action_description}
                         </h1>
                         <p className="text-muted-foreground font-medium flex items-center gap-2">
